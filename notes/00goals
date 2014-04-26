@@ -1,0 +1,76 @@
+* navigate infrastructure by relationships
+   detail pages that contain each edge (vm to IPs, vm to hypervisor)
+   perhaps mini graphs which show the relationships, color coded
+* search infrastructure
+   search for an IP, find the device
+   search for IANA service name, find devices running that service
+* create networks
+* create virtual machines
+* migrate virtual machines
+* manage power
+* statistics
+
+
+major components
+----
+primary sources (could be implemented as streaming rpc services?)
+    * push state data
+    * push stats
+backend services
+    * smallest possible procedures
+service catalog
+    * introspects available procedures from services
+workflow
+    * express complex procedures in terms of small actions
+graph database and graph updater
+    * provide queries over infrastructure state
+stats database and stats gatherer
+    * provide queries over infrastructure stats
+search index and indexer
+    * provide search capability against infrastructure data
+
+
+primary sources
+====
+* either running directly on devices, as in the case of kvm hosts, or run as proxies for remote devices, as with switches and routers and esx hosts
+* data collection begins in response to a zerorpc call
+
+backend services
+====
+*
+
+service catalog
+====
+
+workflow
+====
+
+graph
+====
+
+stats
+====
+
+search
+====
+
+
+durable/persistent bits
+----
+a central configuration database
+kvm inventory
+
+discussions
+----
+(Q) these are a lot of competing goals. how can stats gathering, infrastructure automation, search, and browse all fit together? how does read data relate to write actions?
+
+at the UI controller possible actions could be exposed as named procedures (how are their inputs specified?)
+
+(Q) what is the structure of a read data collector?
+
+(Q) how should services, collectors, etc be configured?
+* they could have configuration files as usual
+* they could get a configuration pushed to them by some supervisor
+* they could ask for their configuration when they start
+
+(Q) as the orchestration suite gets more complex and involves more services how you do keep the setup story simple?
