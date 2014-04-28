@@ -1,6 +1,9 @@
 kvm-hypervisor-role: &hypervisor
-  service: purpledrank.kvm
+  service: purpledrank.services.kvm.KVMService
 
 beastmode1:
   host: beastmode1.mgmt.aperobot.net
+  << : *hypervisor
+
+test2:
   << : *hypervisor
