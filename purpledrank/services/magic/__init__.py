@@ -1,11 +1,13 @@
 __author__ = 'achmed'
 
+import machineid
+
+from ..baseservice import BaseService
+
+from ...errors import ServiceNotConfiguredException
+
 import zerorpc
 import zerorpc.exceptions
-
-from ..errors import ConfigNotFoundException, ServiceNotConfiguredException
-
-import machineid
 
 import logging
 logger = logging.getLogger()
@@ -46,12 +48,10 @@ def reset_logging():
 #         RemoteServiceConfigMixin.__init__(**kwargs)
 #
 
-class BaseService(object):
-    pass
-
 class DiscoveryService(BaseService):
     def __init__(self):
-        logger.info('discovery service built')
+        super(DiscoveryService, self).__init__()
+        logger.info('constructed discovery service')
 
     def terminate(self):
         import sys
@@ -81,11 +81,14 @@ class RemoteServiceConfigMetaclass(type):
                 raise ServiceNotConfiguredException()
 
             servicepath = config['service']
-            pkg, cls = servicepath.rsplit('.', 1)
-            serviceclass = RemoteServiceConfigMetaclass.loader(pkg, cls)
+            if '.' in servicepath:
+                modulepath, objname = servicepath.rsplit('.', 1)
+                module = __import__(modulepath, fromlist=[objname])
+                serviceclass = getattr(module, objname)
+            else:
+                serviceclass = __import__(servicepath)
             logger.info('post load %s, %s' % (repr(serviceclass), serviceclass.__class__))
-            # bases = [ serviceclass ] + list(bases)
-            bases = [ DiscoveryService ] + list(bases)
+            bases = [ serviceclass ] + list(bases)
 
             logger.info('constructed with class %s' % servicepath)
         except zerorpc.exceptions.RemoteError, e:
@@ -96,8 +99,6 @@ class RemoteServiceConfigMetaclass(type):
                 raise
 
         logger.debug('bases %s' % ','.join(map(repr, bases)))
-        # logger.debug('base types %s' % ','.join(map(lambda b: b.__class__, bases)))
-        logger.debug('base types %s' % ','.join(map(lambda b: str(b.__class__), bases)))
         return type.__new__(cls, name, tuple(bases), dct)
 
     @staticmethod
@@ -131,8 +132,9 @@ class RemoteServiceConfigMetaclass(type):
 
         return config
 
+
+        # def __init__(self):
+        #     super(MagicService, self).__init__()
+
 class MagicService(object):
     __metaclass__ = RemoteServiceConfigMetaclass
-
-    # def __init__(self):
-    #     super(MagicService, self).__init__()
