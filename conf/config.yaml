@@ -4,3 +4,6 @@ kvm-hypervisor-role: &hypervisor
 beastmode1:
   host: beastmode1.mgmt.aperobot.net
   << : *hypervisor
+
+test:
+  << : *hypervisor

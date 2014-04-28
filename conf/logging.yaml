@@ -1,0 +1,18 @@
+version: 1
+formatters:
+    isotime:
+        (): purpledrank.log.iso8601formatter.ISO8601Formatter
+        format: "[%(isocreated)s][%(levelname)-8s][%(name)s][%(funcName)s] %(message)s"
+handlers:
+    console:
+        class: logging.StreamHandler
+        formatter: isotime
+        level: DEBUG
+        stream: ext://sys.stdout
+loggers:
+    zerorpc.core:
+        level: DEBUG
+root:
+    level: DEBUG
+    handlers:
+        - console
