@@ -53,75 +53,204 @@ config:
 errors: No known data errors
 """.strip('\n')
 
+rpooldata = """
+  pool: rpool
+ state: ONLINE
+status: Some supported features are not enabled on the pool. The pool can
+        still be used, but some features are unavailable.
+action: Enable all features using 'zpool upgrade'. Once this is done,
+        the pool may no longer be accessible by software that does not support
+        the features. See zpool-features(5) for details.
+  scan: scrub repaired 0 in 0h7m with 0 errors on Mon Jan  7 11:23:57 2013
+config:
+
+        NAME          STATE     READ WRITE CKSUM
+        rpool         ONLINE       0     0     0
+          mirror-0    ONLINE       0     0     0
+            c3t0d0s0  ONLINE       0     0     0
+            c4t1d0s0  ONLINE       0     0     0
+
+errors: No known data errors
+""".lstrip('\n')
+
+configdata = """
+config:
+
+        NAME          STATE     READ WRITE CKSUM
+        rpool         ONLINE       0     0     0
+          mirror-0    ONLINE       0     0     0
+            c3t0d0s0  ONLINE       0     0     0
+            c4t1d0s0  ONLINE       0     0     0
+
+""".strip('\n')
+
+import IPython
+
 grammar_whitespace = False
 
-from modgrammar import Grammar, REPEAT, WORD, OPTIONAL, L, LITERAL
+from modgrammar import Grammar, REPEAT, WORD, OPTIONAL, L, OR
 import modgrammar
 import string
 
-class FieldToken(Grammar):
-    # grammar_whitespace = False
+class SpaceSeperator(Grammar):
+    grammar_greedy = True
+    grammar = ( WORD(' '), )
+
+class FieldWord(Grammar):
     grammar = ( WORD(string.ascii_letters + string.digits + string.punctuation) )
 
 class FirstFieldValue(Grammar):
-    # grammar_whitespace = False
-    grammar = ( FieldToken, OPTIONAL(REPEAT(WORD(string.whitespace), FieldToken)), '\n', )
+    grammar = ( FieldWord, OPTIONAL(REPEAT(SpaceSeperator, FieldWord)), L('\n'), )
 
 class IndentedFieldValue(Grammar):
-    # grammar_whitespace = False
-    grammar = ( '        ', FirstFieldValue, )
+    grammar = ( OR('        ', '\t'), FirstFieldValue, )
 
 class FullFieldValue(Grammar):
-    # grammar_whitespace = False
     grammar = ( FirstFieldValue, OPTIONAL(REPEAT(IndentedFieldValue)), )
 
 class ErrorsField(Grammar):
-    # grammar_whitespace = False
     grammar = ( 'errors: ', FullFieldValue, )
 
+class ConfigCounters(Grammar):
+    grammar = ( WORD(string.digits), SpaceSeperator, WORD(string.digits), SpaceSeperator, WORD(string.digits) )
+
+class ConfigVDevName(Grammar):
+    grammar = ( OR('raidz1', 'raidz2', 'raidz3', 'mirror', 'spare'), '-', WORD(string.digits) )
+
+class ConfigVDevState(Grammar):
+    grammar = ( OR('ONLINE', 'DEGRADED', 'FAULTED', 'OFFLINE', 'UNAVAIL', 'REMOVED',), )
+
+class ConfigDiskName(Grammar):
+    grammar = ( WORD(string.ascii_letters + string.digits + "/") )
+
+class ConfigPoolName(Grammar):
+    grammar = ( WORD(string.ascii_letters + string.digits) )
+
+class ConfigVDev(Grammar):
+    grammar = ( ConfigVDevName, SpaceSeperator, ConfigVDevState, SpaceSeperator, ConfigCounters, )
+
+class ConfigDiskStatusText(Grammar):
+    grammar = ( REPEAT(SpaceSeperator, WORD(string.ascii_letters + string.punctuation + string.digits)), )
+
+class ConfigDisk(Grammar):
+    grammar = ( ConfigDiskName, SpaceSeperator, ConfigVDevState, SpaceSeperator, ConfigCounters, OPTIONAL(ConfigDiskStatusText), )
+
+class ConfigSpareState(Grammar):
+    grammar = ( OR('AVAIL', 'INUSE'), SpaceSeperator, OPTIONAL(REPEAT(SpaceSeperator, WORD(string.ascii_letters))), )
+
+class ConfigSpareDisk(Grammar):
+    grammar = ( ConfigDiskName, SpaceSeperator, ConfigSpareState, )
+
+class ConfigHeader(Grammar):
+    grammar = ( '\tNAME', SpaceSeperator, 'STATE     READ WRITE CKSUM\n', )
+
+class ConfigPool(Grammar):
+    grammar = ( ConfigPoolName, SpaceSeperator, ConfigVDevState, SpaceSeperator, ConfigCounters, '\n', REPEAT('\t', SpaceSeperator, OR(ConfigVDev, ConfigDisk), '\n'), )
+
+class CacheDevices(Grammar):
+    grammar = ( '\tcache\n', REPEAT('\t', SpaceSeperator, OR(ConfigVDev, ConfigDisk), '\n'), )
+
+class SpareDevices(Grammar):
+    grammar = ( '\tspares\n', REPEAT('\t', SpaceSeperator, ConfigSpareDisk, '\n'), )
+
+class LogDevices(Grammar):
+    grammar = ( '\tlogs\n', REPEAT('\t', SpaceSeperator, OR(ConfigVDev, ConfigDisk), '\n'), )
+
+class ConfigBody(Grammar):
+    grammar = ( '\t', ConfigPool, OPTIONAL(LogDevices), OPTIONAL(SpareDevices), OPTIONAL(CacheDevices), )
+
 class ConfigField(Grammar):
-    # grammar_whitespace = False
-    grammar = ( 'config: ', FullFieldValue, )
+    grammar = ( 'config:\n\n', ConfigHeader, ConfigBody, '\n' )
+
+class SeeField(Grammar):
+    grammar = ( '   see: ', FullFieldValue, )
 
 class ScanField(Grammar):
-    # grammar_whitespace = False
     grammar = ( '  scan: ', FullFieldValue, )
 
 class ActionField(Grammar):
-    # grammar_whitespace = False
     grammar = ( 'action: ', FullFieldValue, )
 
 class StatusField(Grammar):
-    # grammar_whitespace = False
     grammar = ( 'status: ', FullFieldValue, )
 
 class StateField(Grammar):
-    # grammar_whitespace = False
     grammar = ( ' state: ', FullFieldValue, )
 
 class PoolNameField(Grammar):
-    # grammar_whitespace = False
     grammar = ( '  pool: ', FullFieldValue, )
 
 class ZpoolStatus(Grammar):
-    # grammar_whitespace = False
-    grammar = ( PoolNameField, StateField, StatusField, ActionField, ScanField, ConfigField, ErrorsField, )
+    grammar = ( PoolNameField, StateField, StatusField, ActionField, ScanField, OPTIONAL(SeeField), ConfigField, ErrorsField, )
 
-class LanguageOfZpoolStatus(Grammar):
-    # grammar_whitespace = False
-    grammar = ( REPEAT(ZpoolStatus), )
+class LanguageOfZpoolStatuses(Grammar):
+    grammar = ( REPEAT(ZpoolStatus, OPTIONAL(WORD('\n'))), )
 
-p = LanguageOfZpoolStatus.parser()
-# print '\n'.join(modgrammar.generate_ebnf(LanguageOfZpoolStatus))
-try:
-    r = p.parse_string(testdata, eof=True)
-    if r:
-        print r.tokens()
-except modgrammar.ParseError, e:
-    print e.message
-    print e.line
-    print e.col
-    print e.expected
+# try:
+#     p = ConfigField.parser()
+#     with open('/tmp/zpool-config2', 'r') as fh:
+#         configdata = fh.read()
+#     r = p.parse_string(configdata, eof=True)
+#     if r:
+#         print 'parse success'
+#         print r.elements
+# except modgrammar.ParseError, e:
+#     print 'parse error'
+#     print e.message, 'at line', e.line, 'col', e.col
+#
+print '\n'.join(modgrammar.generate_ebnf(LanguageOfZpoolStatuses))
+
+
+# statusfield = "status: Some supported features are not enabled on the pool. The pool can\n\
+# still be used, but some features are unavailable."
+#
+# p = StatusField.parser()
+# r = p.parse_string(statusfield, eof=True)
+# if r:
+#     print 'parse succeeded'
+#     print repr(r)
+# else:
+#     print 'parse failed'
+
+# bigfield = """something something\n
+#         watttttttt wat"""
+#
+# p = FullFieldValue.parser()
+# r = p.parse_string(bigfield, eof=True)
+# print r
+#
+# fieldword = "whatwhat"
+# p = FieldWord.parser()
+# r = p.parse_string(fieldword, eof=True)
+# print r
+
+# print '\n'.join(modgrammar.generate_ebnf(LanguageOfZpoolStatuses))
+
+# p = LanguageOfZpoolStatuses.parser()
+#
+# try:
+#     with open('/tmp/zpool-status', 'r') as fh:
+#     with open('/tmp/zpool-status-testpool', 'r') as fh:
+#     with open('/tmp/zpool-one-status', 'r') as fh:
+        # testdata = fh.read()
+    # r = p.parse_string(testdata, eof=True)
+    # print repr(r)
+    # if r:
+    #     for t in r.terminals():
+    #         print repr(t)
+    #
+    #     for pool in r.find_all(ConfigPool):
+    #         print repr(pool)
+        # print r,
+        # print '====remainder==='
+        # print p.remainder(),
+        # print '======'
+    # IPython.embed()
+# except modgrammar.ParseError, e:
+#     print e.message
+#     print e.line
+#     print e.col
+#     print e.expected
 #
 #
 # simpledata = "  pool: rpool\n"
