@@ -5,5 +5,5 @@ beastmode1:
   host: beastmode1.mgmt.aperobot.net
   << : *hypervisor
 
-test2:
+test:
   << : *hypervisor
