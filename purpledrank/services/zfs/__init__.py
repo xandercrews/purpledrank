@@ -14,7 +14,7 @@ class ZFSService(BaseService):
     def load_stats(self):
         while True:
             p = subprocess.Popen('/usr/gnu/bin/uptime')
-            out, err = p.wait()
+            out, err = p.communicate()
             avgs = out.rsplit(':', 1)
             yield avgs.split(', ')
             sleep(1)
