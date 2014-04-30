@@ -12,6 +12,8 @@ handlers:
 loggers:
     zerorpc.core:
         level: DEBUG
+    zerorpc.channel:
+        level: DEBUG
 root:
     level: DEBUG
     handlers:
