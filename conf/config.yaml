@@ -1,15 +1,10 @@
-common:
-  magicport: 9292
-
 kvm-hypervisor-role: &hypervisor
   service: purpledrank.services.kvm.KVMService
 
 test-service: &test-service
   service: purpledrank.services.test.TestService
 
+# this is how you inherit properties
 beastmode1:
   host: beastmode1.mgmt.aperobot.net
   << : *hypervisor
-
-xander-xerbuyi:
-  << : *test-service
