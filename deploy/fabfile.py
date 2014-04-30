@@ -20,7 +20,7 @@ def get_config():
     with open(os.path.join(REPO_TOPDIR, 'conf/config.yaml')) as fh:
         return yaml.load(fh)
 
-def deploy(gittag=None):
+def deploy(gittag=None, confighost='127.0.0.1', configport=9191):
     new_git_dir = False
 
     # clone code
@@ -58,7 +58,7 @@ def deploy(gittag=None):
     if not supervisor_running:
         # run supervisor
         with prefix('. %s/bin/activate' % VENV_DIR.strip('/')):
-            with shell_env(PYTHONPATH=CODE_DIR):
+            with shell_env(PYTHONPATH=CODE_DIR, PURPLE_CONFIG_HOST=confighost, PURPLE_CONFIG_PORT=configport):
                 run('supervisord -c %s' % SUPERVISOR_CONF)
     else:
         with prefix('. %s/bin/activate' % VENV_DIR.strip('/')):

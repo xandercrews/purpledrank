@@ -133,13 +133,20 @@ class RemoteServiceConfigMetaclass(type):
     @staticmethod
     def get_config_connect_params():
         # TODO get config server host and port
-        return os.environ.get('PURPLE_CONFIG_HOST', '127.0.0.1'), os.environ.get('PURPLE_CONFIG_PORT', 9191)
+        port = os.environ.get('PURPLE_CONFIG_PORT', '9191')
+        try:
+            assert str(int(port)) == port
+        except (TypeError, AssertionError):
+            raise Exception('port needs to be a number')
+        if not 1 <= port <= 65535:
+            raise Exception('port needs to be between 1-65535')
+        return os.environ.get('PURPLE_CONFIG_HOST', '127.0.0.1'), port
 
     @staticmethod
     def get_config(ID):
         config_params = RemoteServiceConfigMetaclass.get_config_connect_params()
         assert len(config_params) == 2, 'there should be a host and port in connect params for config server'
-        c = zerorpc.Client('tcp://%s:%d' % config_params)
+        c = zerorpc.Client('tcp://%s:%s' % config_params)
         config = c.get_config(ID)
         c.close()
 
