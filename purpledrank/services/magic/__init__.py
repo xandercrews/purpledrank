@@ -115,7 +115,9 @@ class RemoteServiceConfigMetaclass(type):
     @staticmethod
     def updateLoggingConfig():
         global logger
-        c = zerorpc.Client('tcp://%s:%d' % RemoteServiceConfigMetaclass.get_config_connect_params())
+        config_params = RemoteServiceConfigMetaclass.get_config_connect_params()
+        assert len(config_params) == 2, 'there should be a host and port in connect params for config server'
+        c = zerorpc.Client('tcp://%s:%s' % config_params)
         try:
             l = c.get_logging_config()
             # reset_logging()    # unnecessary
