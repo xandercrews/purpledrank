@@ -7,8 +7,11 @@ REPO_TOPDIR = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__fi
 
 REPO_URL="git@github.com:xandercrews/purpledrank.git"
 
-PID_FILE = "conf/supervisord.pid"
-SUPERVISOR_CONF = 'conf/supervisor.conf'
+CODE_DIR = 'purpledrank/'
+VENV_DIR = 'venv/purpledrank/'
+# PID_FILE = "%s/conf/supervisord.pid" % CODE_DIR.rstrip('/')
+PID_FILE = '/tmp/supervisord.pid'
+SUPERVISOR_CONF = "%s/conf/supervisor.conf" % CODE_DIR.rstrip('/')
 
 env.use_ssh_config = True
 env.forward_agent = True
@@ -19,19 +22,17 @@ def get_config():
 
 def deploy(gittag=None):
     new_git_dir = False
-    code_dir = 'purpledrank/'
-    venv_dir = 'venv/purpledrank/'
 
     # clone code
     with settings(warn_only=True):
-        if run('test -d %s' % code_dir).failed:
+        if run('test -d %s' % CODE_DIR).failed:
             new_git_dir = True
     if new_git_dir:
-        run('mkdir -p %s' % code_dir)
-        run('git clone %s %s' % (REPO_URL, code_dir,))
+        run('mkdir -p %s' % CODE_DIR)
+        run('git clone %s %s' % (REPO_URL, CODE_DIR,))
 
     # checkout newest version
-    with cd(code_dir):
+    with cd(CODE_DIR):
         run('git pull')
         if gittag:
             run('git checkout tags/%s' % gittag)
@@ -41,13 +42,13 @@ def deploy(gittag=None):
     # create virtualenv
     new_venv = False
     with settings(warn_only=True):
-        if run('test -d %s' % venv_dir).failed:
+        if run('test -d %s' % VENV_DIR).failed:
             new_venv = True
     if new_venv:
-        run('virtualenv %s -p `which python2.7`' % venv_dir)
+        run('virtualenv %s -p `which python2.7`' % VENV_DIR)
 
     supervisor_running = True
-    with cd(code_dir):
+    with cd(CODE_DIR):
         with settings(warn_only=True):
             if run('[ -f %s ]' % PID_FILE).failed:
                 supervisor_running = False
@@ -56,8 +57,8 @@ def deploy(gittag=None):
 
     if not supervisor_running:
         # run supervisor
-        with prefix('. %s/bin/activate' % venv_dir.strip('/')):
-            with shell_env(PYTHONPATH=code_dir):
+        with prefix('. %s/bin/activate' % VENV_DIR.strip('/')):
+            with shell_env(PYTHONPATH=CODE_DIR):
                 assert 'Python 2.7' in run('python --version'), 'require python 2.7'
                 run('supervisord -c %s' % SUPERVISOR_CONF)
 
