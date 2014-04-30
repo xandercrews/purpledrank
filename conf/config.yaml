@@ -1,3 +1,6 @@
+common:
+  magicport: 9292
+
 kvm-hypervisor-role: &hypervisor
   service: purpledrank.services.kvm.KVMService
 

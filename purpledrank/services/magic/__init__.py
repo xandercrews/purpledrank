@@ -1,5 +1,7 @@
 __author__ = 'achmed'
 
+import os
+
 import machineid
 
 from ..baseservice import BaseService
@@ -122,11 +124,13 @@ class RemoteServiceConfigMetaclass(type):
     @staticmethod
     def get_config_connect_params():
         # TODO get config server host and port
-        return '127.0.0.1', 9191
+        return os.environ.get('PURPLE_CONFIG_HOST', '127.0.0.1'), os.environ.get('PURPLE_CONFIG_PORT', 9191)
 
     @staticmethod
     def get_config(ID):
-        c = zerorpc.Client('tcp://%s:%d' % RemoteServiceConfigMetaclass.get_config_connect_params())
+        config_params = RemoteServiceConfigMetaclass.get_config_connect_params()
+        assert len(config_params) == 2, 'there should be a host and port in connect params for config server'
+        c = zerorpc.Client('tcp://%s:%d' % config_params)
         config = c.get_config(ID)
         c.close()
 
