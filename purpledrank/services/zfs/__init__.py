@@ -13,8 +13,8 @@ class ZFSService(BaseService):
     @zerorpc.stream
     def load_stats(self):
         while True:
-            p = subprocess.Popen('/usr/gnu/bin/uptime')
+            p = subprocess.Popen('/usr/gnu/bin/uptime', stdout=subprocess.PIPE)
             out, err = p.communicate()
             avgs = out.rsplit(':', 1)[1]
-            yield avgs.split(', ')
+            yield map(str.strip, map(float, avgs.split(', ')))
             sleep(1)
