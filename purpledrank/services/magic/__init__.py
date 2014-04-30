@@ -138,7 +138,7 @@ class RemoteServiceConfigMetaclass(type):
             assert str(int(port)) == port
         except (TypeError, AssertionError):
             raise Exception('port needs to be a number')
-        if not 1 <= port <= 65535:
+        if not 1 <= int(port) <= 65535:
             raise Exception('port needs to be between 1-65535')
         return os.environ.get('PURPLE_CONFIG_HOST', '127.0.0.1'), port
 

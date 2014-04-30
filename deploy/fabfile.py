@@ -20,7 +20,7 @@ def get_config():
     with open(os.path.join(REPO_TOPDIR, 'conf/config.yaml')) as fh:
         return yaml.load(fh)
 
-def deploy(gittag=None, confighost='127.0.0.1', configport=9191):
+def deploy(gittag=None, confighost='127.0.0.1', configport='9191'):
     new_git_dir = False
 
     # clone code
