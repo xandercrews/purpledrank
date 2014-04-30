@@ -59,8 +59,11 @@ def deploy(gittag=None):
         # run supervisor
         with prefix('. %s/bin/activate' % VENV_DIR.strip('/')):
             with shell_env(PYTHONPATH=CODE_DIR):
-                assert 'Python 2.7' in run('python --version'), 'require python 2.7'
                 run('supervisord -c %s' % SUPERVISOR_CONF)
+    else:
+        with prefix('. %s/bin/activate' % VENV_DIR.strip('/')):
+            with shell_env(PYTHONPATH=CODE_DIR):
+                run('supervisorctl -c %s restart purple' % SUPERVISOR_CONF)
 
     # config = get_config()
     # assert 'common' in config, 'config must have common section'
