@@ -19,8 +19,8 @@ import logging
 logger = logging.getLogger()
 import logging.config
 
-import sched
 import time
+import signal
 
 def reset_logging():
     global logger
@@ -65,14 +65,13 @@ class DiscoveryService(BaseService):
     def terminate(self):
         # hacky
 
-        def do_term(self):
+        def do_term(signum, frame):
             gevent.sleep(0)
             import sys
             sys.exit(0)
 
-        s = sched.scheduler(time.time, gevent.sleep)
-        s.enter(2, 0, do_term, [])
-        s.run()
+        signal.signal(signal.SIGALRM, do_term)
+        signal.alarm(2)
 
         return True
 
