@@ -15,6 +15,6 @@ class ZFSService(BaseService):
         while True:
             p = subprocess.Popen('/usr/gnu/bin/uptime')
             out, err = p.communicate()
-            avgs = out.rsplit(':', 1)
+            avgs = out.rsplit(':', 1)[1]
             yield avgs.split(', ')
             sleep(1)
