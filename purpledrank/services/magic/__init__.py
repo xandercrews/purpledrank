@@ -71,7 +71,7 @@ class DiscoveryService(BaseService):
             sys.exit(0)
 
         s = sched.scheduler(time.time, gevent.sleep)
-        s.enter(2, 0, do_term, None)
+        s.enter(2, 0, do_term, [])
         s.run()
 
         return True
