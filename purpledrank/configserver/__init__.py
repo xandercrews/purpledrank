@@ -20,6 +20,9 @@ def search_for_log_config():
 
 class ConfigServer(object):
     def __init__(self):
+        pass
+
+    def refreshConfig(self):
         configpath = search_for_config()
         with open(configpath, 'r') as fh:
             self.config = yaml.safe_load(fh)
@@ -29,6 +32,8 @@ class ConfigServer(object):
             self.logconfig = yaml.safe_load(fh)
 
     def get_config(self, name):
+        self.refreshConfig()
+
         logger.info('client \'%s\' requested config' % name)
         c = self.config.get(name, None)
         if c is None:
