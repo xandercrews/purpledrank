@@ -1,5 +1,9 @@
 __author__ = 'achmed'
 
+import gevent
+import gevent.monkey
+gevent.monkey.patch_time()
+
 import os
 
 import machineid
@@ -14,6 +18,9 @@ import zerorpc.exceptions
 import logging
 logger = logging.getLogger()
 import logging.config
+
+import sched
+import time
 
 def reset_logging():
     global logger
@@ -56,15 +63,18 @@ class DiscoveryService(BaseService):
         logger.info('constructed discovery service')
 
     def terminate(self):
-        import sys
-        sys.exit(0)
+        # hacky
 
-    def logsomethin(self):
-        logger.critical('crit')
-        logger.error('err')
-        logger.warn('warn')
-        logger.info('info')
-        logger.debug('debug')
+        def do_term(self):
+            gevent.sleep(0)
+            import sys
+            sys.exit(0)
+
+        s = sched.scheduler(time.time, gevent.sleep)
+        s.enter(2, 0, do_term, None)
+        s.run()
+
+        return True
 
 class RemoteServiceConfigMetaclass(type):
     def __new__(cls, name, bases, dct):
