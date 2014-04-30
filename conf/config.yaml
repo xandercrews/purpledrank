@@ -1,6 +1,9 @@
 kvm-hypervisor-role: &hypervisor
   service: purpledrank.services.kvm.KVMService
 
+zfs-role: &zfs
+  service: purpledrank.services.zfs.ZFSService
+
 test-service: &test-service
   service: purpledrank.services.test.TestService
 
@@ -8,3 +11,7 @@ test-service: &test-service
 beastmode1:
   host: beastmode1.mgmt.aperobot.net
   << : *hypervisor
+
+twaughthammer-sq46yxz:
+  host: twaughthammer.mgmt.aperobot.net
+  << : *zfs
