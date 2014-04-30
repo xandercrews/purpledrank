@@ -4,9 +4,12 @@ common:
 kvm-hypervisor-role: &hypervisor
   service: purpledrank.services.kvm.KVMService
 
+test-service: &test-service
+  service: purpledrank.services.test.TestService
+
 beastmode1:
   host: beastmode1.mgmt.aperobot.net
   << : *hypervisor
 
-test:
-  << : *hypervisor
+xander-xerbuyi:
+  << : *test-service

@@ -5,6 +5,12 @@ import yaml
 
 from ..errors import ConfigNotFoundException
 
+from ..log import init_logger
+init_logger()
+
+import logging
+logger = logging.getLogger()
+
 def search_for_config():
     # TODO make something other than a static location
     return os.path.join(os.path.abspath(os.getcwd()), 'conf/config.yaml')
@@ -23,6 +29,7 @@ class ConfigServer(object):
             self.logconfig = yaml.safe_load(fh)
 
     def get_config(self, name):
+        logger.info('client \'%s\' requested config' % name)
         c = self.config.get(name, None)
         if c is None:
             raise ConfigNotFoundException()
