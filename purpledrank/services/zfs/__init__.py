@@ -2,6 +2,13 @@ __author__ = 'achmed'
 
 import subprocess
 
+import gevent
+
+from ...timer import PeriodicTimer
+import time
+
+import Queue
+
 from ..baseservice import BaseService
 import zerorpc
 from gevent import sleep
@@ -11,10 +18,17 @@ class ZFSService(BaseService):
         return 'hello'
 
     @zerorpc.stream
-    def load_stats(self):
+    def rc_test(self):
+        q = Queue.Queue()
+
+        def strobe():
+            q.put((time.time(), 1))
+
+        pt = PeriodicTimer(1, strobe)
+
+        g = gevent.spawn(pt.loop)
+
         while True:
-            p = subprocess.Popen('/usr/gnu/bin/uptime', stdout=subprocess.PIPE)
-            out, err = p.communicate()
-            avgs = out.rsplit(':', 1)[1]
-            yield map(float, map(str.strip, avgs.split(', ')))
-            sleep(1)
+            yield q.get()
+
+        g.join()
