@@ -100,7 +100,7 @@ class PoolNameField(Grammar):
     grammar = ( '  pool: ', FullFieldValue, )
 
 class ZpoolStatus(Grammar):
-    grammar = ( PoolNameField, StateField, StatusField, ActionField, ScanField, OPTIONAL(SeeField), ConfigField, ErrorsField, )
+    grammar = ( PoolNameField, StateField, OPTIONAL(StatusField), OPTIONAL(ActionField), ScanField, OPTIONAL(SeeField), ConfigField, ErrorsField, )
 
 class LanguageOfZpoolStatuses(Grammar):
     grammar = ( REPEAT(ZpoolStatus, OPTIONAL(WORD('\n'))), )
