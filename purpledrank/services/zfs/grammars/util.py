@@ -1,7 +1,6 @@
 __author__ = 'achmed'
 
 import sys
-import modgrammar
 import zpoolstatus as zg
 import string
 
@@ -14,9 +13,55 @@ def terminals_to_str(grammar, add_whitespace=False):
 def trim_full_field(s):
     return s.translate(string.maketrans('\n',' '), '\t').strip()
 
-def get_device_tree(g):
+def get_config_device_tree(rootdevice, grammars, disktype=zg.ConfigDisk, vdevtype=zg.ConfigVDev, statetype=zg.ConfigDevState):
+    # pool devices
+    prev_spacing = -1
+    current_device = rootdevice
+    device_stack = [ rootdevice ]
+
+    dev = None
+
+    for cdev in grammars:
+        spacing = len(cdev.find(zg.ConfigDeviceSpacing))
+
+        if disktype == zg.ConfigDisk:
+            cdev = cdev.elements[0]
+
+        if prev_spacing >= 0:
+            if spacing > prev_spacing:
+                device_stack.append(current_device)
+                current_device = dev
+            elif spacing < prev_spacing:
+                current_device = device_stack.pop()
+
+        assert len(device_stack) > 0, 'device stack must not become empty'
+
+        if cdev.__class__ == disktype:
+            # disk
+            if 'disks' not in current_device:
+                current_device['disks'] = []
+
+            disk_name = terminals_to_str(cdev.find(zg.ConfigDiskName))
+            disk_state = terminals_to_str(cdev.find(statetype))
+
+            dev = dict(name=disk_name, state=disk_state)
+            current_device['disks'].append(dev)
+        else:
+            # vdev
+            assert cdev.__class__ == vdevtype, 'assumed non-disk device is vdev'
+            if 'vdevs' not in current_device:
+                current_device['vdevs'] = []
+
+            vdev_name = terminals_to_str(cdev.find(zg.ConfigVDevName))
+            vdev_state = terminals_to_str(cdev.find(zg.ConfigDevState))
+
+            dev = dict(name=vdev_name, state=vdev_state)
+            current_device['vdevs'].append(dev)
+
+        prev_spacing = spacing
+
+def get_zpool_tree(g):
     device_tree = {}
-    prev_spacing = 0
     for p in g.find_all(zg.ZpoolStatus):
         pool_name = terminals_to_str(p.find(zg.PoolNameField).get(zg.FullFieldValue)).strip()
         d = device_tree[pool_name] = dict(name=pool_name)
@@ -63,26 +108,30 @@ def get_device_tree(g):
         except Exception, e:
             d['errors'] = None
 
-        # config
-        for d in p.find(zg.ConfigBody).get(zg.ConfigPool).find_all(zg.ConfigDevice):
-            spacing = d.find_all(zg.ConfigDeviceSpacing)
-            assert len(spacing) == 1, 'expected only one spacing production per device in config'
-            spacing = len(spacing[0])
+        # pool devices
+        get_config_device_tree(d, p.find_all(zg.ConfigDevice))
 
-            for e in d.elements:
-                if e is not None:
-                    print e.__class__
-                else:
-                    print 'None'
+        # pool cache devs
+        d['cache'] = {}
+        cachedevs = p.find(zg.CacheDevices)
+        if cachedevs is not None:
+            get_config_device_tree(d['cache'], cachedevs.find_all(zg.ConfigDevice))
 
-            prev_spacing = spacing
+        # pool log devs
+        d['logs'] = {}
+        logdevs = p.find(zg.LogDevices)
+        if logdevs is not None:
+            get_config_device_tree(d['logs'], logdevs.find_all(zg.ConfigDevice))
+
+        # pool spare devs
+        d['spares'] = {}
+        sparedevs = p.find(zg.SpareDevices)
+        if sparedevs is not None:
+            get_config_device_tree(d['spares'], sparedevs.find_all(zg.ConfigSpareDisk), disktype=zg.ConfigSpareDisk, statetype=zg.ConfigSpareState)
 
     return device_tree
 
 def print_parse_tree_types(g, level=0, exclude=('FieldWord', 'SpaceSeparator')):
-    '''
-    :type g: modgrammar.Grammar
-    '''
     for e in g.elements:
         if e is not None:
             if not e.grammar_collapse and str(e.__class__) in dir(zg) and str(e.__class__) not in exclude:
@@ -102,8 +151,8 @@ if __name__ == "__main__":
         g = p.parse_string(testdata, eof=True)
         assert g is not None
         print p.remainder()
-        get_device_tree(g)
-        pprint.pprint(get_device_tree(g), indent=2)
+        get_zpool_tree(g)
+        pprint.pprint(get_zpool_tree(g), indent=2)
         # print_parse_tree_types(g)
     except modgrammar.ParseError, e:
         print e.message, 'line', e.line, 'col', e.col
