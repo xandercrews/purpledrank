@@ -5,6 +5,7 @@ import gevent.monkey
 gevent.monkey.patch_time()
 
 import os
+import sys
 
 import machineid
 
@@ -115,6 +116,7 @@ class RemoteServiceConfigMetaclass(type):
     @staticmethod
     def updateLoggingConfig():
         global logger
+        print 'getting log config'
         config_params = RemoteServiceConfigMetaclass.get_config_connect_params()
         assert len(config_params) == 2, 'there should be a host and port in connect params for config server'
         c = zerorpc.Client('tcp://%s:%s' % config_params)
@@ -124,7 +126,9 @@ class RemoteServiceConfigMetaclass(type):
             logging.config.dictConfig(l)
             logger.info('logger configured from remote')
         except Exception, e:
-            logger.warn('couldn\'t load log config- %s' % str(e))
+            error = 'couldn\'t load log config- %s' % str(e)
+            logger.warn(error)
+            print >>sys.stderr, error
         c.close()
 
     @staticmethod
