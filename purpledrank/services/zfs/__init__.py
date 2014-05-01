@@ -18,13 +18,19 @@ from ..baseservice import BaseService
 import zerorpc
 from gevent import sleep
 
+import grammars.zpoolstatus
+
+import sys
+
+if sys.platform.startswith('sunos'):
+    ZPOOL_CMD = '/usr/sbin/zpool'
+else:
+    ZPOOL_CMD = '/usr/bin/zpool'
+
 import logging
 logger = logging.getLogger()
 
 class ZFSService(BaseService):
-    def hello(self):
-        return 'hello'
-
     @zerorpc.stream
     def rc_test(self):
         logger.info('started rc test')
@@ -45,3 +51,14 @@ class ZFSService(BaseService):
             yield q.get()
 
         g.join()
+
+    def get_zpool_status(self):
+        p = subprocess.Popen([ZPOOL_CMD, 'status',], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=None)
+        out, err = p.communicate()
+        if p.returncode != 0:
+            raise Exception('zpool status command failed: %s' % err)
+
+        parser = grammars.zpoolstatus.LanguageOfZpoolStatuses.parser()
+        r = parser.parse_string(out)
+
+        return r is not None
