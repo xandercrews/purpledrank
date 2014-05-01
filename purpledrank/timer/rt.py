@@ -5,10 +5,14 @@ stackoverflow-ware
 http://stackoverflow.com/questions/1205722/how-do-i-get-monotonic-time-durations-in-python
 '''
 
-import ctypes, os
+import ctypes, os, sys
 
+# linux
 CLOCK_MONOTONIC_RAW = 4 # see <linux/time.h>
 CLOCK_MONOTONIC = 1 # see <linux/time.h>
+
+# solaris
+CLOCK_HIGHRES = 4
 
 class timespec(ctypes.Structure):
     _fields_ = [
@@ -21,10 +25,13 @@ clock_gettime = librt.clock_gettime
 clock_gettime.argtypes = [ctypes.c_int, ctypes.POINTER(timespec)]
 
 def monotonic_time(raw=False):
-    if raw:
-        TIMER = CLOCK_MONOTONIC_RAW
+    if sys.platform.startswith('sunos'):
+        TIMER = CLOCK_HIGHRES
     else:
-        TIMER = CLOCK_MONOTONIC
+        if raw:
+            TIMER = CLOCK_MONOTONIC_RAW
+        else:
+            TIMER = CLOCK_MONOTONIC
 
     t = timespec()
     if clock_gettime(TIMER, ctypes.pointer(t)) != 0:
