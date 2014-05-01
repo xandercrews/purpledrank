@@ -39,14 +39,17 @@ class ConfigDiskName(Grammar):
 class ConfigPoolName(Grammar):
     grammar = ( WORD(string.ascii_letters + string.digits) )
 
+class ConfigDeviceSpacing(Grammar):
+    grammar = ( '\t', SpaceSeparator, )
+
 class ConfigVDev(Grammar):
-    grammar = ( ConfigVDevName, SpaceSeparator, ConfigVDevState, SpaceSeparator, ConfigCounters, )
+    grammar = ( ConfigDeviceSpacing, ConfigVDevName, SpaceSeparator, ConfigVDevState, SpaceSeparator, ConfigCounters, '\n' )
 
 class ConfigDiskStatusText(Grammar):
     grammar = ( REPEAT(SpaceSeparator, WORD(string.ascii_letters + string.punctuation + string.digits)), )
 
 class ConfigDisk(Grammar):
-    grammar = ( ConfigDiskName, SpaceSeparator, ConfigVDevState, SpaceSeparator, ConfigCounters, OPTIONAL(ConfigDiskStatusText), )
+    grammar = ( ConfigDeviceSpacing, ConfigDiskName, SpaceSeparator, ConfigVDevState, SpaceSeparator, ConfigCounters, OPTIONAL(ConfigDiskStatusText), '\n' )
 
 class ConfigSpareState(Grammar):
     grammar = ( OR('AVAIL', 'INUSE'), SpaceSeparator, OPTIONAL(REPEAT(SpaceSeparator, WORD(string.ascii_letters))), )
@@ -57,8 +60,11 @@ class ConfigSpareDisk(Grammar):
 class ConfigHeader(Grammar):
     grammar = ( '\tNAME', SpaceSeparator, 'STATE     READ WRITE CKSUM\n', )
 
+class ConfigDevice(Grammar):
+    grammar = ( OR(ConfigVDev, ConfigDisk), )
+
 class ConfigPool(Grammar):
-    grammar = ( ConfigPoolName, SpaceSeparator, ConfigVDevState, SpaceSeparator, ConfigCounters, '\n', REPEAT('\t', SpaceSeparator, OR(ConfigVDev, ConfigDisk), '\n'), )
+    grammar = ( ConfigPoolName, SpaceSeparator, ConfigVDevState, SpaceSeparator, ConfigCounters, '\n', REPEAT(ConfigDevice), )
 
 class CacheDevices(Grammar):
     grammar = ( '\tcache\n', REPEAT('\t', SpaceSeparator, OR(ConfigVDev, ConfigDisk), '\n'), )
