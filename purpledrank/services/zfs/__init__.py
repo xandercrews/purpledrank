@@ -3,6 +3,11 @@ __author__ = 'achmed'
 import subprocess
 
 import gevent
+import gevent.monkey
+
+import threading
+
+gevent.monkey.patch_all()
 
 from ...timer import PeriodicTimer
 import time
@@ -23,22 +28,20 @@ class ZFSService(BaseService):
     @zerorpc.stream
     def rc_test(self):
         logger.info('started rc test')
-        q = Queue.Queue()
+        q = Queue.Queue(maxsize=10)     # bound the size of the queue to detect when it's not keeping up
+        stopevent = threading.Event()
 
         def strobe():
-            logger.info('strobe called')
-            print 'strobe called'
-            q.put((time.time(), 1))
+            try:
+                q.put((time.time(), 1), timeout=10)
+            except Queue.Full:
+                stopevent.set()
 
         pt = PeriodicTimer(1, strobe)
 
-        logger.info('spawning gevent')
-        print 'spawning gevent?'
-        g = gevent.spawn(pt.loop)
+        g = gevent.spawn(pt.loop, stopevent)
 
         while True:
-            logger.info('waiting on queue')
-            print 'waiting on queue'
             yield q.get()
 
         g.join()

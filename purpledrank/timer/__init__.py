@@ -12,8 +12,6 @@ logging.basicConfig()
 
 class PeriodicTimer(object):
     def __init__(self, incr_time, cb, raw=False):
-        self.stop = False
-
         self.raw = raw
         self.cb = cb
         self.incr_time = incr_time
@@ -21,19 +19,19 @@ class PeriodicTimer(object):
         self.time_gen = self.get_next_time(monotonic_time(self.raw))
         self.cur_time, self.next_time = self.time_gen.next()
 
-    def loop(self):
+    def loop(self, stopevent):
         while True:
             delta = self.next_time - self.cur_time
             assert delta >= 0
             while self.cur_time < self.next_time:
                 sleep_interval = self.next_time - self.cur_time
                 logger.debug('sleeping for %.9fs' % sleep_interval)
-                if self.stop:
+                if stopevent.is_set():
                     break
                 gevent.sleep(sleep_interval)
                 self.cur_time = monotonic_time(self.raw)
             self.cur_time, self.next_time = self.time_gen.next()
-            if self.stop:
+            if stopevent.is_set():
                 break
             self.cb()
         logger.info('timer stopped')
@@ -47,9 +45,6 @@ class PeriodicTimer(object):
             while self.next_time < self.cur_time:
                 self.next_time += self.incr_time
 
-    def cancel(self):
-        self.stop = True
-
 if __name__ == '__main__':
     import time
     import math
@@ -62,4 +57,5 @@ if __name__ == '__main__':
         print t
 
     pt = PeriodicTimer(1, print_time)
-    pt.loop()
+    import threading
+    pt.loop(threading.Event())
