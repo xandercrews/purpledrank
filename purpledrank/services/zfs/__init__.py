@@ -62,4 +62,9 @@ class ZFSService(BaseService):
         parser = grammars.zpoolstatus.LanguageOfZpoolStatuses.parser()
         r = parser.parse_string(out, eof=True)
 
+        if r is None:
+            raise Exception('unknown problem parsing zpool status')
+
+
+
         return r is not None
