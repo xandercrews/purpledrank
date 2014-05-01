@@ -60,6 +60,6 @@ class ZFSService(BaseService):
             raise Exception('zpool status command failed: %s' % err)
 
         parser = grammars.zpoolstatus.LanguageOfZpoolStatuses.parser()
-        r = parser.parse_string(out)
+        r = parser.parse_string(out, eof=True)
 
         return r is not None
