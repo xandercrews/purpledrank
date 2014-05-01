@@ -2,7 +2,7 @@ __author__ = 'achmed'
 
 from rt import monotonic_time
 import gevent.monkey
-
+import gevent
 gevent.monkey.patch_time()
 
 import logging
@@ -30,7 +30,7 @@ class PeriodicTimer(object):
                 logger.debug('sleeping for %.9fs' % sleep_interval)
                 if self.stop:
                     break
-                time.sleep(sleep_interval)
+                gevent.sleep(sleep_interval)
                 self.cur_time = monotonic_time(self.raw)
             self.cur_time, self.next_time = self.time_gen.next()
             if self.stop:
