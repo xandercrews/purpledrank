@@ -7,7 +7,8 @@ import gevent.monkey
 
 import threading
 
-gevent.monkey.patch_all()
+gevent.monkey.patch_socket()
+gevent.monkey.patch_time()
 
 from ...timer import PeriodicTimer
 import time
