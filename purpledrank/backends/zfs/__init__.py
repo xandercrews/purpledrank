@@ -31,7 +31,7 @@ def zpool_status():
     if r is None:
         raise Exception('unknown problem parsing zpool status')
 
-    rem = r.remainder()
+    rem = parser.remainder()
     if len(rem) > 0:
         logger.error('zpool status parser succeeded but had unexpected trailing content')
         logger.debug(rem)
