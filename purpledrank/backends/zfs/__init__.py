@@ -18,7 +18,7 @@ init_logger()
 import logging
 logger = logging.getLogger()
 
-def get_zpool_status():
+def zpool_status():
     p = subprocess.Popen([ZPOOL_CMD, 'status',], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=None)
     out, err = p.communicate()
 
