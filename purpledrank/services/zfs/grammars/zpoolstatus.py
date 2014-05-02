@@ -67,13 +67,13 @@ class ConfigPool(Grammar):
     grammar = ( ConfigPoolName, SpaceSeparator, ConfigDevState, SpaceSeparator, ConfigCounters, '\n', REPEAT(ConfigDevice), )
 
 class CacheDevices(Grammar):
-    grammar = ( '\tcache\n', REPEAT(OR(ConfigVDev, ConfigDisk)), )
+    grammar = ( '\tcache\n', REPEAT(ConfigDevice), )
 
 class SpareDevices(Grammar):
     grammar = ( '\tspares\n', REPEAT(ConfigSpareDisk, '\n'), )
 
 class LogDevices(Grammar):
-    grammar = ( '\tlogs\n', REPEAT(OR(ConfigVDev, ConfigDisk)), )
+    grammar = ( '\tlogs\n', REPEAT(ConfigDevice), )
 
 class ConfigBody(Grammar):
     grammar = ( '\t', ConfigPool, OPTIONAL(LogDevices), OPTIONAL(SpareDevices), OPTIONAL(CacheDevices), )

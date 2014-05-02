@@ -42,7 +42,9 @@ def get_config_device_tree(rootdevice, grammars, disktype=zg.ConfigDisk, vdevtyp
                 current_device['disks'] = []
 
             disk_name = terminals_to_str(cdev.find(zg.ConfigDiskName))
-            disk_state = terminals_to_str(cdev.find(statetype))
+            disk_state = terminals_to_str(cdev.find(statetype)).strip()
+
+            # TODO errors
 
             dev = dict(name=disk_name, state=disk_state)
             current_device['disks'].append(dev)
@@ -53,7 +55,9 @@ def get_config_device_tree(rootdevice, grammars, disktype=zg.ConfigDisk, vdevtyp
                 current_device['vdevs'] = []
 
             vdev_name = terminals_to_str(cdev.find(zg.ConfigVDevName))
-            vdev_state = terminals_to_str(cdev.find(zg.ConfigDevState))
+            vdev_state = terminals_to_str(cdev.find(zg.ConfigDevState)).strip()
+
+            # TODO errors
 
             dev = dict(name=vdev_name, state=vdev_state)
             current_device['vdevs'].append(dev)
@@ -121,7 +125,8 @@ def get_zpool_tree(g):
         d['logs'] = {}
         logdevs = p.find(zg.LogDevices)
         if logdevs is not None:
-            get_config_device_tree(d['logs'], logdevs.find_all(zg.ConfigDevice))
+            logconfigdevs = logdevs.find_all(zg.ConfigDevice)
+            get_config_device_tree(d['logs'], logconfigdevs)
 
         # pool spare devs
         d['spares'] = {}
@@ -150,8 +155,9 @@ if __name__ == "__main__":
     try:
         g = p.parse_string(testdata, eof=True)
         assert g is not None
-        print p.remainder()
-        get_zpool_tree(g)
+        assert len(p.remainder()) == 0
+        # print p.remainder()
+        # get_zpool_tree(g)
         pprint.pprint(get_zpool_tree(g), indent=2)
         # print_parse_tree_types(g)
     except modgrammar.ParseError, e:
