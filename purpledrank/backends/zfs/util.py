@@ -1,7 +1,8 @@
+from purpledrank.backends.zfs.grammars import zpoolstatus as zg
+
 __author__ = 'achmed'
 
 import sys
-import zpoolstatus as zg
 import string
 
 def terminals_to_str(grammar, add_whitespace=False):
