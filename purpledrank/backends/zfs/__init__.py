@@ -45,8 +45,17 @@ class ZFSDataInterface(object):
         return cls._parse_properties(lines, scriptmode=True)
 
     @classmethod
-    def zpool_properties(cls):
-        result = util._generic_command(ZPOOL_CMD, 'get', 'all')
+    def zpool_properties(cls, pool=None):
+        args = [ZPOOL_CMD, 'get', 'all']
+
+        if pool is not None:
+            r = re.match('^[a-zA-Z0-9]+$', pool)
+            if r is None:
+                raise Exception('invalid pool name')
+
+            args.append(pool)
+
+        result = util._generic_command(*args)
         lines = result.splitlines()
 
         return cls._parse_properties(lines)

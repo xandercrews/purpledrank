@@ -28,8 +28,8 @@ class ZFSService(BaseService):
     def get_zpool_status(self, pool=None):
         return ZFSDataInterface.zpool_status(pool)
 
-    def get_zpool_properties(self):
-        return ZFSDataInterface.zpool_properties()
+    def get_zpool_properties(self, pool=None):
+        return ZFSDataInterface.zpool_properties(pool)
 
     def get_zfs_volume_properties(self):
         return ZFSDataInterface.zfs_volume_properties()
