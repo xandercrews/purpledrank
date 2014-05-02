@@ -18,8 +18,17 @@ init_logger()
 import logging
 logger = logging.getLogger()
 
-def zpool_status():
-    p = subprocess.Popen([ZPOOL_CMD, 'status',], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=None)
+import re
+
+def zpool_status(pool=None):
+    r = re.match('^[a-zA-Z0-9]+$', pool)
+    if r is None:
+        raise Exception('invalid pool name')
+
+    if pool is not None:
+        p = subprocess.Popen([ZPOOL_CMD, 'status', pool,], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=None)
+    else:
+        p = subprocess.Popen([ZPOOL_CMD, 'status',], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=None)
     out, err = p.communicate()
 
     if p.returncode != 0:

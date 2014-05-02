@@ -25,8 +25,8 @@ import logging
 logger = logging.getLogger()
 
 class ZFSService(BaseService):
-    def get_zpool_status(self):
-        return zpool_status()
+    def get_zpool_status(self, pool=None):
+        return zpool_status(pool)
 
     @zerorpc.stream
     def rc_test(self):
