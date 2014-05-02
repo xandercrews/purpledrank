@@ -1,6 +1,6 @@
 __author__ = 'achmed'
 
-import util
+from .. import backendutil
 
 import xml.sax
 import StringIO
@@ -116,7 +116,7 @@ class STMFDataInterface(object):
     @classmethod
     def stmf_list_targets(cls):
         # start with export because it's the fastest way to get all the views
-        results = util._generic_command(cls.SVC_EXPORT_BIN, 'export', '-a', 'stmf')
+        results = backendutil._generic_command(cls.SVC_EXPORT_BIN, 'export', '-a', 'stmf')
 
         resultbuffer = StringIO.StringIO(results)
 
@@ -129,7 +129,7 @@ class STMFDataInterface(object):
         stmfdata = xmlparser.getData()
 
         # enrich with lun data
-        results = util._generic_command(cls.STMF_BIN, 'list-lu', '-v')
+        results = backendutil._generic_command(cls.STMF_BIN, 'list-lu', '-v')
         luns = cls._parse_stmf_targets(results.splitlines())
 
         for lu,v in luns.iteritems():
@@ -182,7 +182,7 @@ class ITAdmDataInterface(object):
 
     @classmethod
     def itadm_target_properties(cls):
-        result = util._generic_command(cls.ITADM_BIN, 'list-target', '-v')
+        result = backendutil._generic_command(cls.ITADM_BIN, 'list-target', '-v')
         lines = result.splitlines()
 
         # check header
@@ -191,7 +191,7 @@ class ITAdmDataInterface(object):
         # parse target data
         itdata = cls._parse_itadm_targets(lines[1:])
 
-        result = util._generic_command(cls.ITADM_BIN, 'list-tpg', '-v')
+        result = backendutil._generic_command(cls.ITADM_BIN, 'list-tpg', '-v')
         lines = result.splitlines()
 
         # check header

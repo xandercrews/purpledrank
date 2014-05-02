@@ -4,6 +4,7 @@ import sys
 
 import grammars.zpoolstatus
 import util
+from .. import backendutil
 
 if sys.platform.startswith('sunos'):
     ZPOOL_CMD = '/usr/sbin/zpool'
@@ -24,7 +25,7 @@ import re
 class ZFSDataInterface(object):
     @classmethod
     def zfs_volume_properties(cls):
-        result = util._generic_command(ZFS_CMD, 'list', '-t', 'volume', '-o', 'name')
+        result = backendutil._generic_command(ZFS_CMD, 'list', '-t', 'volume', '-o', 'name')
         lines = result.splitlines()
 
         # check header
@@ -39,7 +40,7 @@ class ZFSDataInterface(object):
             volumes.append(fields[0])
 
         # get properties
-        result = util._generic_command(ZFS_CMD, 'get', '-Hp', '-r', '-t', 'snapshot,volume', 'all', *volumes)
+        result = backendutil._generic_command(ZFS_CMD, 'get', '-Hp', '-r', '-t', 'snapshot,volume', 'all', *volumes)
         lines = result.splitlines()
 
         return cls._parse_properties(lines, scriptmode=True)
@@ -55,7 +56,7 @@ class ZFSDataInterface(object):
 
             args.append(pool)
 
-        result = util._generic_command(*args)
+        result = backendutil._generic_command(*args)
         lines = result.splitlines()
 
         return cls._parse_properties(lines)
@@ -71,7 +72,7 @@ class ZFSDataInterface(object):
 
             args.append(pool)
 
-        result = util._generic_command(*args)
+        result = backendutil._generic_command(*args)
 
         parser = grammars.zpoolstatus.LanguageOfZpoolStatuses.parser()
         r = parser.parse_string(result, eof=True)
