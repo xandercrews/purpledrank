@@ -151,12 +151,12 @@ if __name__ == "__main__":
     import modgrammar
     import pprint
     p = zg.LanguageOfZpoolStatuses.parser()
-    with open('/tmp/zpool-status', 'r') as fh:
+    with open('/tmp/zpool-status-remainder', 'r') as fh:
         testdata = fh.read()
     try:
         g = p.parse_string(testdata, eof=True)
         assert g is not None
-        assert len(p.remainder()) == 0
+        # assert len(p.remainder()) == 0
         # print p.remainder()
         # get_zpool_tree(g)
         pprint.pprint(get_zpool_tree(g), indent=2)

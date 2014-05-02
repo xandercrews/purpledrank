@@ -16,7 +16,7 @@ class FirstFieldValue(Grammar):
     grammar = ( FieldWord, OPTIONAL(REPEAT(SpaceSeparator, FieldWord)), L('\n'), )
 
 class IndentedFieldValue(Grammar):
-    grammar = ( OR('        ', '\t'), FirstFieldValue, )
+    grammar = ( OR('        ', '    ', '\t'), FirstFieldValue, )
 
 class FullFieldValue(Grammar):
     grammar = ( FirstFieldValue, OPTIONAL(REPEAT(IndentedFieldValue)), )
