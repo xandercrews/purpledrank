@@ -20,6 +20,7 @@ from ..baseservice import BaseService
 import zerorpc
 
 from ...backends.zfs import ZFSDataInterface
+from ...backends.comstar import STMFDataInterface, ITAdmDataInterface
 
 import logging
 logger = logging.getLogger()
@@ -33,6 +34,12 @@ class ZFSService(BaseService):
 
     def get_zfs_volume_properties(self):
         return ZFSDataInterface.zfs_volume_properties()
+
+    def get_stmf_targets(self):
+        return STMFDataInterface.stmf_list_targets()
+
+    def get_itadm_target_properties(self):
+        return ITAdmDataInterface.itadm_target_properties()
 
     @zerorpc.stream
     def rc_test(self):
