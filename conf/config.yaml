@@ -12,6 +12,23 @@ beastmode1:
   host: beastmode1.mgmt.aperobot.net
   << : *hypervisor
 
-twaughthammer-sq46yxz:
+twaughthammer-sq46yxz: &twaughthammer
   host: twaughthammer.mgmt.aperobot.net
+  port: 9292
   << : *zfs
+
+collector-service: &collector-service
+  sources:
+    - <<       : *twaughthammer
+      method   : get_zpool_properties
+      interval : 30
+      args     : []
+    - <<       : *twaughthammer
+      method   : get_zpool_status
+      interval : 30
+      args     : []
+  service: purpledrank.services.rediscollector.RedisCollectorService
+
+xander-xerbuyi:
+  host: xander.esc.aperobot.net
+  << : *collector-service

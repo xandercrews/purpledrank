@@ -20,9 +20,6 @@ import logging
 logger = logging.getLogger()
 import logging.config
 
-import time
-import signal
-
 def reset_logging():
     global logger
     for handler in logging.root.handlers[:]:
@@ -31,50 +28,10 @@ def reset_logging():
     logger = logging.getLogger()
 
 
-# class RemoteServiceConfigMixin(object):
-#     def __init__(self, configname, confighost, configport, **kwargs):
-#         self.configname = configname
-#         self.confighost = confighost
-#         self.configport = configport
-#         self.updateConfig()
-#         self.updateLoggingConfig()
-#
-#     def updateConfig(self):
-#         c = zerorpc.Client('tcp://%s:%d' % (self.confighost, self.configport,))
-#         self.config = c.get_config(self.configname)
-#         c.close()
-#
-#     def updateLoggingConfig(self):
-#         c = zerorpc.Client('tcp://%s:%d' % (self.confighost, self.configport,))
-#         try:
-#             l = c.get_logging_config()
-#             logging.config.dictConfig(l)
-#         except Exception, e:
-#             logger.warn('couldn\'t load log config- %s' % str(e))
-#         c.close()
-#
-# class BaseService(RemoteServiceConfigMixin):
-#     def __init__(self, **kwargs):
-#         RemoteServiceConfigMixin.__init__(**kwargs)
-#
-
 class DiscoveryService(BaseService):
     def __init__(self):
         super(DiscoveryService, self).__init__()
         logger.info('constructed discovery service')
-
-    def terminate(self):
-        # hacky
-
-        def do_term(signum, frame):
-            gevent.sleep(0)
-            import sys
-            sys.exit(0)
-
-        signal.signal(signal.SIGALRM, do_term)
-        signal.alarm(2)
-
-        return True
 
 class RemoteServiceConfigMetaclass(type):
     def __new__(cls, name, bases, dct):
@@ -88,6 +45,7 @@ class RemoteServiceConfigMetaclass(type):
         try:
             config = RemoteServiceConfigMetaclass.get_config(ID)
             dct['config'] = config
+            dct['machineid'] = ID
 
             if 'service' not in config:
                 raise ServiceNotConfiguredException()
@@ -157,10 +115,6 @@ class RemoteServiceConfigMetaclass(type):
         c.close()
 
         return config
-
-
-        # def __init__(self):
-        #     super(MagicService, self).__init__()
 
 class MagicService(object):
     __metaclass__ = RemoteServiceConfigMetaclass

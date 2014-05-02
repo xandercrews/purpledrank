@@ -20,7 +20,7 @@ def get_config():
     with open(os.path.join(REPO_TOPDIR, 'conf/config.yaml')) as fh:
         return yaml.load(fh)
 
-def deploy(gittag=None, confighost='127.0.0.1', configport='9191'):
+def deploy(gittag=None, gitbranch='master', confighost='127.0.0.1', configport='9191', listenport='9292'):
     new_git_dir = False
 
     # clone code
@@ -33,11 +33,12 @@ def deploy(gittag=None, confighost='127.0.0.1', configport='9191'):
 
     # checkout newest version
     with cd(CODE_DIR):
+        # TODO use tags and branches at the same time
         run('git pull')
         if gittag:
             run('git checkout tags/%s' % gittag)
         else:
-            run('git checkout master')
+            run('git checkout %s' % gitbranch)
 
     # create virtualenv
     new_venv = False
@@ -58,12 +59,12 @@ def deploy(gittag=None, confighost='127.0.0.1', configport='9191'):
     if not supervisor_running:
         # run supervisor
         with prefix('. %s/bin/activate' % VENV_DIR.strip('/')):
-            with shell_env(PYTHONPATH=CODE_DIR, PURPLE_CONFIG_HOST=confighost, PURPLE_CONFIG_PORT=configport):
-                run('supervisord -c %s' % SUPERVISOR_CONF)
+            with shell_env(PYTHONPATH=CODE_DIR, PURPLE_CONFIG_HOST=confighost, PURPLE_CONFIG_PORT=configport, PURPLE_LISTEN_PORT=listenport):
+                run('sudo -E supervisord -c %s' % SUPERVISOR_CONF)
     else:
         with prefix('. %s/bin/activate' % VENV_DIR.strip('/')):
             with shell_env(PYTHONPATH=CODE_DIR):
-                run('supervisorctl -c %s restart purple' % SUPERVISOR_CONF)
+                run('sudo -E supervisorctl -c %s restart purple' % SUPERVISOR_CONF)
 
     # config = get_config()
     # assert 'common' in config, 'config must have common section'
