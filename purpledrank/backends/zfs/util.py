@@ -5,6 +5,8 @@ __author__ = 'achmed'
 import sys
 import string
 
+import subprocess
+
 def terminals_to_str(grammar, add_whitespace=False):
     spacing = ''
     if add_whitespace:
@@ -163,3 +165,13 @@ if __name__ == "__main__":
         # print_parse_tree_types(g)
     except modgrammar.ParseError, e:
         print e.message, 'line', e.line, 'col', e.col
+
+def _generic_command(cmd, *args):
+    p = subprocess.Popen([cmd] + list(args), stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    rc = p.returncode
+
+    if rc != 0:
+        raise Exception('%s failed: %s' % (cmd, stderr,))
+
+    return stdout

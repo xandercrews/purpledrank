@@ -19,14 +19,20 @@ import Queue
 from ..baseservice import BaseService
 import zerorpc
 
-from ...backends.zfs import zpool_status
+from ...backends.zfs import ZFSDataInterface
 
 import logging
 logger = logging.getLogger()
 
 class ZFSService(BaseService):
     def get_zpool_status(self, pool=None):
-        return zpool_status(pool)
+        return ZFSDataInterface.zpool_status(pool)
+
+    def get_zpool_properties(self):
+        return ZFSDataInterface.zpool_properties()
+
+    def get_zfs_volume_properties(self):
+        return ZFSDataInterface.zfs_volume_properties()
 
     @zerorpc.stream
     def rc_test(self):
