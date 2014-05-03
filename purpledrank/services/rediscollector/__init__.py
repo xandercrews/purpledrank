@@ -1,3 +1,5 @@
+import collections
+
 __author__ = 'achmed'
 
 import redis
@@ -41,23 +43,66 @@ class RedisCollectionThread(threading.Thread):
         self.collection_method = functools.partial(self.client.__getattr__(self.method), *args)
         self.rconn = rconn
 
-        self.redis_key = make_prefix(self.sourcename, self.agentid)
-        self.redis_pub_key = make_prefix(self.sourcename)
+        self.redis_key_prefix = make_prefix(self.sourcename, self.agentid)
+        self.redis_pub_key_prefix = make_prefix(self.sourcename)
 
     def run(self):
         self.stopevent = threading.Event()
+
         def cb():
             data = self.collection_method()
-            # TODO multi writer
-            logger.debug('from agent %s collected %s' % (self.agentid, str(data)))
-            old_data = self.rconn.get(self.redis_key)
-            if old_data is not None:
-                old_data = endecoder.loads(old_data)
-            if old_data is None or not dictequal(data, old_data):
-                self.rconn.set(self.redis_key, endecoder.dumps(data))
-                self.rconn.publish(self.redis_pub_key, endecoder.dumps(dict(key=self.redis_key)))
-                logger.info('updated and published record %s' % self.redis_key)
-        self.pt = PeriodicTimer(self.interval, cb, immediate=True)
+
+            logger.debug('collected objects from agent %s method %s' % (self.agentid, self.method))
+
+            update_keys = []
+
+            for d in data:
+                if not isinstance(d, collections.Mapping):
+                    logger.error('object is not a mapping: %s')
+                    continue
+
+                if 'id' not in d:
+                    logger.error('id field not set in object: %s' % str(d))
+                    continue
+
+                if 'type' not in d:
+                    logger.error('type field not set in object: %s' % str(d))
+                    continue
+
+                if 'sourceid' not in d:
+                    logger.error('sourceid field not set in object: %s' % str(d))
+                    continue
+
+                _id = d['id']
+                _type = d['type']
+                _sourceid = d['sourceid']
+
+                logger.debug('processing object: %s' % str(d))
+
+                redis_key = add_prefix(self.redis_key_prefix, _sourceid, _type, _id)
+                redis_pub_key = add_prefix(self.redis_pub_key_prefix, _type)
+
+                old_data = self.rconn.get(redis_key)
+                if old_data is not None:
+                    old_data = endecoder.loads(old_data)
+                if old_data is None or not dictequal(data, old_data):
+                    self.rconn.set(redis_key, endecoder.dumps(data))
+                    self.rconn.publish(redis_pub_key, endecoder.dumps(dict(key=redis_key)))
+                    logger.info('updated and published record %s' % redis_key)
+
+                update_keys.append(redis_key)
+
+            return update_keys
+
+        previous_keys = set(scan_iter('%s\0*' % self.redis_key_prefix))
+        new_keys = set(cb())
+
+        stale_keys = previous_keys - new_keys
+        logger.info('found %d stale keys, removing' % len(stale_keys))
+        logger.debug('stale keys: [%s]' % ', '.join(stale_keys))
+        self.rconn.delete(stale_keys)
+
+        self.pt = PeriodicTimer(self.interval, cb, immediate=False)
         self.pt.loop(self.stopevent)
 
     def stop(self):
