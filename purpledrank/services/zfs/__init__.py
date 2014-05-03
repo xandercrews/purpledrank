@@ -80,7 +80,7 @@ class ZFSService(BaseService):
 
         return make_envelope_foreach(zp, 'zvol_properties', self.sourceid, timestamp)
 
-    def get_stmf_targets(self):
+    def get_stmf_properties(self):
         '''
         get all stmf targets
         '''
@@ -104,7 +104,7 @@ class ZFSService(BaseService):
 
         return hgs + luns + tgs
 
-    def get_itadm_target_properties(self):
+    def get_itadm_properties(self):
         '''
         get all itadm properties
         '''

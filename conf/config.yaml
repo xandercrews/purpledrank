@@ -42,12 +42,12 @@ collector-service: &collector
       args     : []
     - <<       : *twaughthammer
       name     : itadm_properties
-      method   : get_itadm_target_properties
+      method   : get_itadm_properties
       interval : 30
       args     : []
     - <<       : *twaughthammer
       name     : stmf_targets
-      method   : get_stmf_targets
+      method   : get_stmf_properties
       interval : 30
       args     : []
   service: purpledrank.services.rediscollector.RedisCollectorService
