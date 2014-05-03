@@ -37,7 +37,7 @@ collector-service: &collector
       args     : []
     - <<       : *twaughthammer
       name     : zvol_properties
-      method   : get_zfs_volume_properties
+      method   : get_zvol_properties
       interval : 30
       args     : []
     - <<       : *twaughthammer

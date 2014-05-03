@@ -3,7 +3,7 @@ __author__ = 'achmed'
 '''
 data sources are responsible for discretizing their own data
 
-responses should be multipart messages which may contain more than one object
+responses should be multipart and may contain one or more objects (or 0 i guess)
 or just one, but in a sequence all the same.  data must be returned in this format:
 [
   {                             # the envelope
@@ -66,25 +66,62 @@ class ZFSService(BaseService):
         '''
         returns the properties of all zfs pools, or a specific pool if specified
         '''
-        return ZFSDataInterface.zpool_properties(pool)
+        timestamp = utctimestamp()
+        zp = ZFSDataInterface.zpool_properties(pool)
 
-    def get_zfs_volume_properties(self):
+        return make_envelope_foreach(zp, 'zpool_properties', self.sourceid, timestamp)
+
+    def get_zvol_properties(self):
         '''
         get the properties of all zfs volumes
         '''
-        return ZFSDataInterface.zfs_volume_properties()
+        timestamp = utctimestamp()
+        zp = ZFSDataInterface.zfs_volume_properties()
+
+        return make_envelope_foreach(zp, 'zvol_properties', self.sourceid, timestamp)
 
     def get_stmf_targets(self):
         '''
         get all stmf targets
         '''
-        return STMFDataInterface.stmf_list_targets()
+        timestamp = utctimestamp()
+        lt = STMFDataInterface.stmf_list_targets()
+
+        if 'hgs' in lt:
+            hgs = make_envelope_foreach(lt['hgs'], 'stmf_hgs', self.sourceid, timestamp)
+        else:
+            hgs = []
+
+        if 'luns' in lt:
+            luns = make_envelope_foreach(lt['luns'], 'stmf_luns', self.sourceid, timestamp)
+        else:
+            luns = []
+
+        if 'tgs' in lt:
+            tgs = make_envelope_foreach(lt['tgs'], 'stmf_tgs', self.sourceid, timestamp)
+        else:
+            tgs = []
+
+        return hgs + luns + tgs
 
     def get_itadm_target_properties(self):
         '''
         get all itadm properties
         '''
-        return ITAdmDataInterface.itadm_target_properties()
+        timestamp = utctimestamp()
+        tp = ITAdmDataInterface.itadm_target_properties()
+
+        if 'hgs' in tp:
+            targets = make_envelope_foreach(tp['targets'], 'itadm_targets', self.sourceid, timestamp)
+        else:
+            targets = []
+
+        if 'tgps' in tp:
+            tpgs = make_envelope_foreach(tp['tpgs'], 'itadm_tpgs', self.sourceid, timestamp)
+        else:
+            tpgs = []
+
+        return targets + tpgs
 
     # @zerorpc.stream
     # def rc_test(self):

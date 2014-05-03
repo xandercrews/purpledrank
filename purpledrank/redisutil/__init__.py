@@ -22,9 +22,9 @@ def make_prefix(*components):
     concatenate with a colon
     '''
     for c in components:
-        assert ':' not in c, 'colon not allowed in key prefix component'
+        assert '\0' not in c, 'null (\\0) not allowed in key prefix component'
 
-    return ':'.join(components)
+    return '\0'.join(components)
 
 def add_prefix(prefix, *components):
     '''
@@ -32,4 +32,4 @@ def add_prefix(prefix, *components):
     for now just  make sure the key components don't already
     and combine that prefix with a colon
     '''
-    return prefix + ':' + make_prefix(*components)
+    return prefix + '\0' + make_prefix(*components)
