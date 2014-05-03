@@ -116,7 +116,7 @@ class ZFSService(BaseService):
         else:
             targets = []
 
-        if 'tgps' in tp:
+        if 'tpgs' in tp:
             tpgs = make_envelope_foreach(tp['tpgs'], 'itadm_tpgs', self.sourceid, timestamp)
         else:
             tpgs = []
