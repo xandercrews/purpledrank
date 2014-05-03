@@ -17,7 +17,7 @@ import zerorpc
 import zerorpc.exceptions
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 import logging.config
 
 def reset_logging():

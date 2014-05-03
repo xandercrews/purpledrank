@@ -6,18 +6,21 @@ import gevent
 gevent.monkey.patch_time()
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 logging.basicConfig()
 # logger.setLevel(logging.DEBUG)
 
 class PeriodicTimer(object):
-    def __init__(self, incr_time, cb, raw=False):
+    def __init__(self, incr_time, cb, raw=False, immediate=False):
         self.raw = raw
         self.cb = cb
         self.incr_time = incr_time
 
         self.time_gen = self.get_next_time(monotonic_time(self.raw))
         self.cur_time, self.next_time = self.time_gen.next()
+
+        if immediate:
+            self.cb()
 
     def loop(self, stopevent):
         while True:

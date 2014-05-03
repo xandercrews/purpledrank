@@ -13,21 +13,44 @@ beastmode1:
   << : *hypervisor
 
 twaughthammer-sq46yxz: &twaughthammer
-  host: twaughthammer.mgmt.aperobot.net
+  host: twaughthammer.work.aperobot.net
   port: 9292
   << : *zfs
+
+redis-config: &redis-config
+  host: 127.0.0.1
+  port: 6379
 
 collector-service: &collector-service
   sources:
     - <<       : *twaughthammer
+      name     : zpool_props
       method   : get_zpool_properties
       interval : 30
       args     : []
     - <<       : *twaughthammer
+      name     : zpool_status
       method   : get_zpool_status
       interval : 30
       args     : []
+    - <<       : *twaughthammer
+      name     : zvol_properties
+      method   : get_zfs_volume_properties
+      interval : 30
+      args     : []
+    - <<       : *twaughthammer
+      name     : itadm_properties
+      method   : get_itadm_target_properties
+      interval : 30
+      args     : []
+    - <<       : *twaughthammer
+      name     : stmf_targets
+      method   : get_stmf_targets
+      interval : 30
+      args     : []
   service: purpledrank.services.rediscollector.RedisCollectorService
+  redis:
+    << : *redis-config
 
 xander-xerbuyi:
   host: xander.esc.aperobot.net

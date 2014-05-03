@@ -7,7 +7,7 @@ import gevent
 import threading
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 class TestService(BaseService):
     @zerorpc.stream

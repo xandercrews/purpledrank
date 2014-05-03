@@ -9,7 +9,7 @@ REPO_TOPDIR = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__fi
 MACHINE_ID_PATH = '%s/machineid' % REPO_TOPDIR
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 def get_machine_id():
     '''

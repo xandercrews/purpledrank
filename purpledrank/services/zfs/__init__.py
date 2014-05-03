@@ -20,7 +20,7 @@ from ...backends.zfs import ZFSDataInterface
 from ...backends.comstar import STMFDataInterface, ITAdmDataInterface
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 class ZFSService(BaseService):
     def get_zpool_status(self, pool=None):

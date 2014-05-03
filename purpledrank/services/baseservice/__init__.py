@@ -4,13 +4,16 @@ import gevent
 import signal
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 class BaseService(object):
     def __init__(self):
         logger.debug('constructed base service')
 
     def machine_id(self):
+        '''
+        return the machineid that was read on startup
+        '''
         return self.machineid
 
     # override in subclasses for status that inspects
