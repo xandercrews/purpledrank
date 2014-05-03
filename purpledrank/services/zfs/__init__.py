@@ -111,7 +111,7 @@ class ZFSService(BaseService):
         timestamp = utctimestamp()
         tp = ITAdmDataInterface.itadm_properties()
 
-        if 'hgs' in tp:
+        if 'targets' in tp:
             targets = make_envelope_foreach(tp['targets'], 'itadm_targets', self.sourceid, timestamp)
         else:
             targets = []
