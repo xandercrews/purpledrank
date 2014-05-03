@@ -1,13 +1,14 @@
-kvm-hypervisor-role: &hypervisor
-  service: purpledrank.services.kvm.KVMService
-
 zfs-role: &zfs
   service: purpledrank.services.zfs.ZFSService
 
 test-service: &test-service
   service: purpledrank.services.test.TestService
 
-# this is how you inherit properties
+# this is how you mark properties for inheritance (&blerf)
+kvm-hypervisor-role: &hypervisor
+  service: purpledrank.services.kvm.KVMService
+
+# this is how you inherit properties (<< : *blerf)
 beastmode1:
   host: beastmode1.mgmt.aperobot.net
   << : *hypervisor
