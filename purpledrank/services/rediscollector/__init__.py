@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 
 import functools
 
-import msgpack
+# import msgpack as endecoder
+import json as endecoder
 
 class RedisCollectionThread(threading.Thread):
     def __init__(self, sourcename, host, port, interval, method, args, rconn):
@@ -34,13 +35,13 @@ class RedisCollectionThread(threading.Thread):
         self.interval = interval
         try:
             self.client = zerorpc.Client('tcp://%s:%d' % (self.host, self.port))
-            self.machineid = self.client.machine_id()
+            self.agentid = self.client.agent_id()
         except Exception, e:
             raise Exception('couldn\'t create client connection to source: %s' % str(e)), None, sys.exc_info()[2]
         self.collection_method = functools.partial(self.client.__getattr__(self.method), *args)
         self.rconn = rconn
 
-        self.redis_key = make_prefix(self.sourcename, self.machineid)
+        self.redis_key = make_prefix(self.sourcename, self.agentid)
         self.redis_pub_key = make_prefix(self.sourcename)
 
     def run(self):
@@ -48,13 +49,13 @@ class RedisCollectionThread(threading.Thread):
         def cb():
             data = self.collection_method()
             # TODO multi writer
-            logger.debug('from machine %s collected %s' % (self.machineid, str(data)))
+            logger.debug('from agent %s collected %s' % (self.agentid, str(data)))
             old_data = self.rconn.get(self.redis_key)
             if old_data is not None:
-                old_data = msgpack.loads(old_data)
+                old_data = endecoder.loads(old_data)
             if old_data is None or not dictequal(data, old_data):
-                self.rconn.set(self.redis_key, msgpack.dumps(data))
-                self.rconn.publish(self.redis_pub_key, msgpack.dumps(dict(key=self.redis_key)))
+                self.rconn.set(self.redis_key, endecoder.dumps(data))
+                self.rconn.publish(self.redis_pub_key, endecoder.dumps(dict(key=self.redis_key)))
                 logger.info('updated and published record %s' % self.redis_key)
         self.pt = PeriodicTimer(self.interval, cb, immediate=True)
         self.pt.loop(self.stopevent)

@@ -1,5 +1,27 @@
 __author__ = 'achmed'
 
+'''
+data sources are responsible for discretizing their own data
+
+responses should be multipart messages which may contain more than one object
+or just one, but in a sequence all the same.  data must be returned in this format:
+[
+  {                             # the envelope
+    "id": <id>,
+    "agentid": <agentid">,      # the agent which collected the data (and the key for the config)
+    "sourceid": <sourceid>,     # the object which the data pertains to (i.e. the host or device and not the proxy)
+    "timestamp": <timestamp>,
+    "_": {                      # anything you want, the actual data
+      ...
+    }
+  },
+  {                             # another one
+    ...
+  }
+]
+'''
+
+
 import threading
 
 import gevent
@@ -19,15 +41,29 @@ import zerorpc
 from ...backends.zfs import ZFSDataInterface
 from ...backends.comstar import STMFDataInterface, ITAdmDataInterface
 
+from ...envelopeutil import make_envelope
+from ...timeutil import utctimestamp
+
 import logging
 logger = logging.getLogger(__name__)
 
 class ZFSService(BaseService):
+    def __init__(self):
+        BaseService.__init__(self)
+        self.sourceid = self.config['sourceid']
+
     def get_zpool_status(self, pool=None):
         '''
         returns a dict structure of all zfs zpools, or a specific pool if specified
         '''
-        return ZFSDataInterface.zpool_status(pool)
+        response = []
+
+        timestamp = utctimestamp()
+        zs = ZFSDataInterface.zpool_status(pool)
+        for pool, d in zs.iteritems():
+            response.append(make_envelope(pool, 'zpool_status', self.sourceid, d, timestamp))
+
+        return response
 
     def get_zpool_properties(self, pool=None):
         '''

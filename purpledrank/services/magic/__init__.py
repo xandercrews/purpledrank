@@ -7,7 +7,7 @@ gevent.monkey.patch_time()
 import os
 import sys
 
-import machineid
+import agentid
 
 from ..baseservice import BaseService
 
@@ -41,11 +41,11 @@ class RemoteServiceConfigMetaclass(type):
         RemoteServiceConfigMetaclass.updateLoggingConfig()
 
         # get the remote config
-        ID = machineid.get_machine_id()
+        ID = agentid.get_agent_id()
         try:
             config = RemoteServiceConfigMetaclass.get_config(ID)
             dct['config'] = config
-            dct['machineid'] = ID
+            dct['agentid'] = ID
 
             if 'service' not in config:
                 raise ServiceNotConfiguredException()

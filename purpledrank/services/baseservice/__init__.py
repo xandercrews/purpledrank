@@ -10,11 +10,11 @@ class BaseService(object):
     def __init__(self):
         logger.debug('constructed base service')
 
-    def machine_id(self):
+    def agent_id(self):
         '''
-        return the machineid that was read on startup
+        return the agentid that was read on startup
         '''
-        return self.machineid
+        return self.agentid
 
     # override in subclasses for status that inspects
     def service_status(self):
