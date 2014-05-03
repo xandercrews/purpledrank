@@ -41,7 +41,7 @@ import zerorpc
 from ...backends.zfs import ZFSDataInterface
 from ...backends.comstar import STMFDataInterface, ITAdmDataInterface
 
-from ...envelopeutil import make_envelope
+from ...envelopeutil import make_envelope_foreach
 from ...timeutil import utctimestamp
 
 import logging
@@ -56,14 +56,11 @@ class ZFSService(BaseService):
         '''
         returns a dict structure of all zfs zpools, or a specific pool if specified
         '''
-        response = []
 
         timestamp = utctimestamp()
         zs = ZFSDataInterface.zpool_status(pool)
-        for pool, d in zs.iteritems():
-            response.append(make_envelope(pool, 'zpool_status', self.sourceid, d, timestamp))
 
-        return response
+        return make_envelope_foreach(zs, 'zpool_status', self.sourceid, timestamp)
 
     def get_zpool_properties(self, pool=None):
         '''
