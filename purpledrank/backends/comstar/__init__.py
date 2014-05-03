@@ -273,7 +273,7 @@ class ITAdmDataInterface(object):
             process_target()
 
         # split apart the tpg from the mystery number
-        for t in targets:
+        for t in targets.itervalues():
             t['tpg'] = t['tpg-mystery-number'] = None
             try:
                 if 'tpg-tags' in t:
