@@ -272,4 +272,17 @@ class ITAdmDataInterface(object):
         if len(props) > 0:
             process_target()
 
+        # split apart the tpg from the mystery number
+        for t in targets:
+            t['tpg'] = t['tpg-mystery-number'] = None
+            try:
+                if 'tpg-tags' in t:
+                    tpg, num = t['tpg-tags'].split(' = ')
+                    t['tpg'] = tpg
+                    t['tpg-mystery-number'] = int(num)
+            except KeyError:
+                pass
+            except TypeError:
+                pass
+
         return targets
