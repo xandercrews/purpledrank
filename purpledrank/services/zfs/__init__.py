@@ -85,7 +85,7 @@ class ZFSService(BaseService):
         get all stmf targets
         '''
         timestamp = utctimestamp()
-        lt = STMFDataInterface.stmf_list_targets()
+        lt = STMFDataInterface.stmf_properties()
 
         if 'hgs' in lt:
             hgs = make_envelope_foreach(lt['hgs'], 'stmf_hgs', self.sourceid, timestamp)
@@ -109,7 +109,7 @@ class ZFSService(BaseService):
         get all itadm properties
         '''
         timestamp = utctimestamp()
-        tp = ITAdmDataInterface.itadm_target_properties()
+        tp = ITAdmDataInterface.itadm_properties()
 
         if 'hgs' in tp:
             targets = make_envelope_foreach(tp['targets'], 'itadm_targets', self.sourceid, timestamp)

@@ -114,7 +114,7 @@ class STMFDataInterface(object):
     SVC_EXPORT_BIN = '/usr/sbin/svccfg'
 
     @classmethod
-    def stmf_list_targets(cls):
+    def stmf_properties(cls):
         # start with export because it's the fastest way to get all the views
         results = backendutil._generic_command(cls.SVC_EXPORT_BIN, 'export', '-a', 'stmf')
 
@@ -181,7 +181,7 @@ class ITAdmDataInterface(object):
     ITADM_BIN = '/usr/sbin/itadm'
 
     @classmethod
-    def itadm_target_properties(cls):
+    def itadm_properties(cls):
         result = backendutil._generic_command(cls.ITADM_BIN, 'list-target', '-v')
         lines = result.splitlines()
 
