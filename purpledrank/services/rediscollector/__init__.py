@@ -54,11 +54,11 @@ class RedisCollectionThread(threading.Thread):
 
             logger.debug('collected objects from agent %s method %s' % (self.agentid, self.method))
 
-            update_keys = []
+            process_keys = []
 
             for d in data:
                 if not isinstance(d, collections.Mapping):
-                    logger.error('object is not a mapping: %s')
+                    logger.error('object is not a mapping: %s' % str(d))
                     continue
 
                 if 'id' not in d:
@@ -73,6 +73,10 @@ class RedisCollectionThread(threading.Thread):
                     logger.error('sourceid field not set in object: %s' % str(d))
                     continue
 
+                if '_' not in d:
+                    logger.error('data (_) field not set in object: %s' % str(d))
+                    continue
+
                 _id = d['id']
                 _type = d['type']
                 _sourceid = d['sourceid']
@@ -83,18 +87,40 @@ class RedisCollectionThread(threading.Thread):
                 redis_pub_key = add_prefix(self.redis_pub_key_prefix, _type)
 
                 old_data = self.rconn.get(redis_key)
-                if old_data is not None:
-                    old_data = endecoder.loads(old_data)
-                if old_data is None or not dictequal(data, old_data):
-                    self.rconn.set(redis_key, endecoder.dumps(data))
+
+                update_record = False
+
+                if old_data is None:
+                    update_record = True
+                    logger.info('creating and publishing record %s' % redis_key)
+                elif old_data is not None:
+                    try:
+                        old_data = endecoder.loads(old_data)
+
+                        if not isinstance(old_data, collections.Mapping):
+                            update_record = True
+                            logger.error('previous data was not a mapping, overwriting')
+                            logger.info('updating and publishing record %s' % redis_key)
+                        elif '_' not in old_data:
+                            update_record = True
+                            logger.error('previous data did not include data (_) field, overwriting')
+                            logger.info('updating and publishing record %s' % redis_key)
+                        elif not dictequal(d['_'], old_data['_']):
+                            update_record = True
+                            logger.info('updating and publishing record %s' % redis_key)
+                    except Exception, e:
+                        logger.error('could not decode previous record, overwriting')
+                        update_record = True
+
+                if update_record:
+                    self.rconn.set(redis_key, endecoder.dumps(d))
                     self.rconn.publish(redis_pub_key, endecoder.dumps(dict(key=redis_key)))
-                    logger.info('updated and published record %s' % redis_key)
 
-                update_keys.append(redis_key)
+                process_keys.append(redis_key)
 
-            return update_keys
+            return process_keys
 
-        previous_keys = set(scan_iter('%s\0*' % self.redis_key_prefix))
+        previous_keys = set(scan_iter(self.rconn, '%s\0*' % self.redis_key_prefix))
         new_keys = set(cb())
 
         stale_keys = previous_keys - new_keys
@@ -135,6 +161,7 @@ class RedisCollectorService(BaseService):
             self.workers.append(t)
 
         for t in self.workers:
+            # t.run()     # for debugging =/
             t.start()
 
     def worker_stuff(self):
