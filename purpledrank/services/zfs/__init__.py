@@ -40,6 +40,7 @@ import zerorpc
 
 from ...backends.zfs import ZFSDataInterface
 from ...backends.comstar import STMFDataInterface, ITAdmDataInterface
+from ...backends.cfgadm import CfgAdmDataInterface
 
 from ...envelopeutil import make_envelope_foreach
 from ...timeutil import utctimestamp
@@ -49,6 +50,7 @@ logger = logging.getLogger(__name__)
 
 class ZFSService(BaseService):
     def __init__(self):
+        BaseService.__init__(self)
         BaseService.__init__(self)
         self.sourceid = self.config['sourceid']
 
@@ -122,6 +124,15 @@ class ZFSService(BaseService):
             tpgs = []
 
         return targets + tpgs
+
+    def get_cfgadm_disks(self):
+        '''
+        get all disks from cfgadm
+        '''
+        timestamp = utctimestamp()
+        cd = CfgAdmDataInterface.cfgadm_disk_properties()
+
+        return make_envelope_foreach(cd, 'cfgadm_disks', self.sourceid, timestamp)
 
     # @zerorpc.stream
     # def rc_test(self):
