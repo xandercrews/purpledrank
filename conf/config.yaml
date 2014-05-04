@@ -1,5 +1,11 @@
-kvm-hypervisor-role: &hypervisor
-  service: purpledrank.services.kvm.KVMService
+## this is how you mark properties for inheritance (&blerf)
+# kvm-hypervisor-role: &hypervisor
+#   service: purpledrank.services.kvm.KVMService
+
+## this is how you inherit properties (<< : *blerf)
+# beastmode1:
+#   host: beastmode1.mgmt.aperobot.net
+#   << : *hypervisor
 
 zfs-role: &zfs
   service: purpledrank.services.zfs.ZFSService
@@ -7,11 +13,51 @@ zfs-role: &zfs
 test-service: &test-service
   service: purpledrank.services.test.TestService
 
-# this is how you inherit properties
-beastmode1:
-  host: beastmode1.mgmt.aperobot.net
-  << : *hypervisor
+redis-config: &redis-config
+  host: 127.0.0.1
+  port: 6379
 
-twaughthammer-sq46yxz:
-  host: twaughthammer.mgmt.aperobot.net
+twaughthammer-sq46yxz: &twaughthammer
+  host: twaughthammer.work.aperobot.net
+  port: 9292
+  sourceid: twaughthammer
   << : *zfs
+
+collector-service: &collector
+  sources:
+    - <<       : *twaughthammer
+      name     : zpool_props
+      method   : get_zpool_properties
+      interval : 30
+      args     : []
+    - <<       : *twaughthammer
+      name     : zpool_status
+      method   : get_zpool_status
+      interval : 30
+      args     : []
+    - <<       : *twaughthammer
+      name     : zvol_properties
+      method   : get_zvol_properties
+      interval : 30
+      args     : []
+    - <<       : *twaughthammer
+      name     : itadm_properties
+      method   : get_itadm_properties
+      interval : 30
+      args     : []
+    - <<       : *twaughthammer
+      name     : stmf_targets
+      method   : get_stmf_properties
+      interval : 30
+      args     : []
+  service: purpledrank.services.rediscollector.RedisCollectorService
+  redis:
+    << : *redis-config
+
+discretizer-service: &discretizer
+  host: xander:esc.aperobot.net
+  port: 9293
+
+xander-xerbuyi:
+  host: xander.esc.aperobot.net
+  << : *collector

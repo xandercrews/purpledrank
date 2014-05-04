@@ -18,7 +18,7 @@ from ...log import init_logger
 init_logger()
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 import re
 
