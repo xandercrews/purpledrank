@@ -54,3 +54,30 @@ zpool
 (4) pre-computed value derived from free variable is equal to another
 (5) simpleish case without free variables involved- one document has to have a certain value in it (along a complex json path)
 (6) same as the one where one value has to be in the other, but more complicated because they could be nested (in this case maybe not nested in arbitrary ways, but maybe something else could be)
+
+
+[options for expressing]
+
+by writing code:
+    free variables: JsonPathMatchFact('sourceid', JsonPathMatchFact.OP_ANY_EQUALS, 'zpool', name='zpool-source'),
+                                         ^ some json path         ^                 ^             ^ the name that you use when referring to this 'fact'
+                                                                  |                 \ the specified value
+                                                                  \ an operator which says anything along the path can equal the specified value
+
+    necessary conditions: JsonPathExtractFact('_.id', JsonPathExtractFact.OP_EXTRACT_FIRST, name='generic-id'),
+                                               ^ json path  ^                                     ^  the name you use when referring to this free variable
+                                                            \ operator which gets all the values at the path
+
+    relation: Relation('zpool_of', ('zpool-type', '',), ('zvol-type', 'generic-id',), relationalcriteria=(ItemGetterRelationalCriterion(RelationalCriterion.OP_S_IN_P, 1, 1),) ),
+                         ^ relation name   ^              ^ S, or successor facts       ^ the way relational facts are compared   ^      ^ the operator (which does 'X in Y'), for the P[1] and S[1]
+                                           \ P, or predecessor, facts by names                                                    \ one of N criteria which, if true, will mean the two things are related
+
+by writing in a json-based DSL:
+
+{
+  "sourceid": x,
+  "_": {
+    "": ""
+  }
+}
+
