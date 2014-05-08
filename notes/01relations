@@ -48,7 +48,7 @@ disk
 zpool
 
 [discussion]
-(1) simplest free variable case- two values must match identically.  this can be expressed thus:
+(1) simplest free variable case- two values must match identically
 (2) a complex free variable case- there is a complicated json path, and one of them has to be in the other
 (3) a custom comparator needs to be used with a free variable as input
 (4) pre-computed value derived from free variable is equal to another
