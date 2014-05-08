@@ -1,0 +1,56 @@
+[original docs]
+itadm_tpgs [comstar_tpg]
+itadm_targets [comstar_target]
+stmf_luns [comstar_lun]
+stmf_hgs [comstar_hostgroup]
+(*) stmf_tgs [comstar_targetgroup]     not yet implemented
+zpool_properties
+zpool_status
+    -> zpool_properties [zpool]
+zvol_properties [zvol]
+cfgadm_disks [harddisk]
+
+[merged docs]
+comstar_tpg
+(*) comstar_targetgroup             not yet implemented
+    -> (??)
+comstar_target
+    -> comstar_tpg (tpg_of)
+        * itadm_targets._.tpg == itadm_tpgs.id  (tpg id matches) (1)
+        * sourceid == sourceid   (on the same machine)
+comstar_lun
+    -> comstar_hostgroup (hostgroup_of)
+        * stmf_hgs.id IN comstar_lun._.views.*.host_group (host group a property in the views) (2)
+        * sourceid == sourceid   (on the same machine)
+    -> zvol (zvol_of)
+        * comstar_lun._.data_file ends with zvol.id (3)
+        OR
+        * LSTRIP('/dev/zvol/rdsk/', comstar_lun._.data_file) == zvol.id (4)
+        AND
+        * sourceid == sourceid   (on the same machine)
+    -> comstar_target (target_of)  method #1 through target group membership
+        * comstar_targetgroup.id IN comstar_lun._.views.*.target_group (target group a property in the views)
+        * sourceid == sourceid   (on the same machine)
+    -> comstar_target (target_of)  method #2
+        * sourceid == sourceid   (on the same machine)
+        * comstar_lun._.views.*._target_group == [] (5)
+comstar_hostgroup
+zvol
+    -> zpool (zpool_of)
+        * sourceid == sourceid   (on the same machine)
+        * SPLIT(zvol.id, '/', 1)[0] == zpool.id
+disk
+    -> zpool (disk_of)
+        * sourceid == sourceid   (on the same machine)
+        * harddisk.id IN zpool._.vdevs[*].disks[*].name (6)
+        OR
+        * harddisk.id IN zpool._.disks[*].name
+zpool
+
+[discussion]
+(1) simplest free variable case- two values must match identically.  this can be expressed thus:
+(2) a complex free variable case- there is a complicated json path, and one of them has to be in the other
+(3) a custom comparator needs to be used with a free variable as input
+(4) pre-computed value derived from free variable is equal to another
+(5) simpleish case without free variables involved- one document has to have a certain value in it (along a complex json path)
+(6) same as the one where one value has to be in the other, but more complicated because they could be nested (in this case maybe not nested in arbitrary ways, but maybe something else could be)
