@@ -58,7 +58,7 @@ zpool
 
 [options for expressing]
 
-by writing code:
+> by writing code:
     free variables: JsonPathMatchFact('sourceid', JsonPathMatchFact.OP_ANY_EQUALS, 'zpool', name='zpool-source'),
                                          ^ some json path         ^                 ^             ^ the name that you use when referring to this 'fact'
                                                                   |                 \ the specified value
@@ -72,12 +72,64 @@ by writing code:
                          ^ relation name   ^              ^ S, or successor facts       ^ the way relational facts are compared   ^      ^ the operator (which does 'X in Y'), for the P[1] and S[1]
                                            \ P, or predecessor, facts by names                                                    \ one of N criteria which, if true, will mean the two things are related
 
-by writing in a json-based DSL:
 
-{
-  "sourceid": x,
-  "_": {
-    "": ""
+> by writing in a json-based DSL:
+
+* simple free variable case
+zpool                     zvol
+{                         {
+  "sourceid": x,            "sourceid": x,
+  "_": {                    "_": {
+    "id": y                   "zpool": y,
+  }                         }
+}                         }
+
+
+* some unknown key in between (this is not quite how the document is structured)
+comstar_lun               comstar_hostgroup
+{                         {
+  "_": {                    "_": {
+    "views": {                "id": x
+      *: {                  }
+        "name": x         }
+      }
+    }
   }
 }
 
+
+* free variable must be in a sequence
+vm                        hypervisor
+{                         {
+  "_": {                    "_": {
+    "id": x                   "vms": [x]
+  }                         }
+}                         }
+
+
+> by writing in a DSL which contains jsonpaths:
+
+    WITH
+    x in zpool:*,
+    y in zvol:*
+    JOIN ON
+    x.sourceid == y.sourceid,
+    x._.id == y._.zpool
+
+and that dsl could contain references to methods (transforms) in some call table provided (as an argument or by decoration):
+
+    WITH
+    x in comstar_tpg:*,
+    y in iscsi_initiator:*
+    JOIN ON
+    strip_port_number(x._.portals) == strip_domain_name(y.target_portal)
+
+
+and maybe methods for mangling the documents:
+
+   WITH
+   flatten_disks(x) in zpool:*,
+   y in harddisk:*
+   JOIN ON
+   y._.id IN x.disks,
+   x.sourceid == y.sourceid
