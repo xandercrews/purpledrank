@@ -1,0 +1,39 @@
+{
+  "sourceid": "twaughthammer",
+  "timestamp": "2014-05-03T21:49:21.204977+00:00",
+  "type": "stmf_luns",
+  "id": "600144F0599F8B000000512BFDF30003",
+  "_": {
+    "write_protect": "Disabled",
+    "vendor_id": "OI",
+    "access_state": "Active",
+    "product_id": "COMSTAR",
+    "views": {
+      "1": {
+        "host_group": [
+          "beastmode1"
+        ],
+        "target_group": [],
+        "lun": 8
+      },
+      "0": {
+        "host_group": [
+          "mothership1"
+        ],
+        "target_group": [],
+        "lun": 1
+      }
+    },
+    "data_file": "/dev/zvol/rdsk/stor/vms/router1",
+    "management_url": "not set",
+    "operational_status": "Online",
+    "serial_num": "not set",
+    "writeback_cache": "Enabled",
+    "meta_file": "not set",
+    "alias": "/dev/zvol/rdsk/stor/vms/router1",
+    "provider_name": "sbd",
+    "block_size": 512,
+    "view_entry_count": 2,
+    "size": 21474836480
+  }
+}

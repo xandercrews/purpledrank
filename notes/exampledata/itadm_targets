@@ -1,0 +1,15 @@
+{
+  "sourceid": "twaughthammer",
+  "timestamp": "2014-05-03T21:49:20.779274+00:00",
+  "type": "itadm_targets",
+  "id": "iqn.2010-09.org.openindiana:02:498b623c-005f-eaf6-9393-8d80a101e18b",
+  "_": {
+    "tpg": "ethtgt",
+    "targetchapuser": "-",
+    "auth": "none (defaults)",
+    "tpg-tags": "ethtgt = 2",
+    "alias": "-",
+    "tpg-mystery-number": 2,
+    "targetchapsecret": "unset"
+  }
+}

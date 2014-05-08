@@ -1,0 +1,33 @@
+{
+  "sourceid": "twaughthammer",
+  "timestamp": "2014-05-03T21:48:30.335035+00:00",
+  "type": "zpool_properties",
+  "id": "rpool",
+  "_": {
+    "comment": "-",
+    "freeing": "0",
+    "listsnapshots": "off",
+    "delegation": "on",
+    "dedupditto": "0",
+    "dedupratio": "1.00x",
+    "autoexpand": "off",
+    "allocated": "14.4G",
+    "guid": "18398111267391878995",
+    "size": "37G",
+    "capacity": "38%",
+    "feature@multi_vdev_crash_dump": "disabled",
+    "cachefile": "-",
+    "bootfs": "rpool/ROOT/netatalk-3.0.1-1",
+    "autoreplace": "off",
+    "readonly": "off",
+    "version": "-",
+    "health": "ONLINE",
+    "expandsize": "0",
+    "feature@lz4_compress": "disabled",
+    "feature@async_destroy": "enabled",
+    "feature@empty_bpobj": "active",
+    "free": "22.6G",
+    "failmode": "wait",
+    "altroot": "-"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "sourceid": "twaughthammer",
+  "timestamp": "2014-05-03T21:49:20.817489+00:00",
+  "type": "zpool_status",
+  "id": "rpool",
+  "_": {
+    "status": "Some supported features are not enabled on the pool. The pool can still be used, but some features are unavailable.",
+    "errors": "No known data errors",
+    "name": "rpool",
+    "spares": {},
+    "scan": "scrub repaired 0 in 0h7m with 0 errors on Mon Jan  7 11:23:57 2013",
+    "cache": {},
+    "see": null,
+    "vdevs": [
+      {
+        "state": "ONLINE",
+        "disks": [
+          {
+            "state": "ONLINE",
+            "name": "c3t0d0s0"
+          },
+          {
+            "state": "ONLINE",
+            "name": "c4t1d0s0"
+          }
+        ],
+        "name": "mirror-0"
+      }
+    ],
+    "state": "ONLINE",
+    "action": "Enable all features using 'zpool upgrade'. Once this is done, the pool may no longer be accessible by software that does not support the features. See zpool-features(5) for details.",
+    "logs": {}
+  }
+}

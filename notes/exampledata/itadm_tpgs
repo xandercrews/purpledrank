@@ -1,0 +1,9 @@
+{
+  "sourceid": "twaughthammer",
+  "timestamp": "2014-05-03T21:49:20.779274+00:00",
+  "type": "itadm_tpgs",
+  "id": "ethtgt",
+  "_": {
+    "portals": "10.13.33.7:7999"
+  }
+}

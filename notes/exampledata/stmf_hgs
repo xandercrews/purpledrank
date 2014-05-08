@@ -1,0 +1,11 @@
+{
+  "sourceid": "twaughthammer",
+  "timestamp": "2014-05-03T21:49:21.204977+00:00",
+  "type": "stmf_hgs",
+  "id": "mothership1",
+  "_": {
+    "members": [
+      "iqn.2013-02.mothership1:0d0a0b20"
+    ]
+  }
+}
