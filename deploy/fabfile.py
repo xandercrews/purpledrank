@@ -34,11 +34,11 @@ def deploy(gittag=None, gitbranch='master', confighost='127.0.0.1', configport='
     # checkout newest version
     with cd(CODE_DIR):
         # TODO use tags and branches at the same time
-        run('git pull')
         if gittag:
             run('git checkout tags/%s' % gittag)
         else:
             run('git checkout %s' % gitbranch)
+        run('git pull')
 
     # create virtualenv
     new_venv = False

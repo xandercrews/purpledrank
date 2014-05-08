@@ -41,4 +41,6 @@ class ConfigServer(object):
         return c
 
     def get_logging_config(self):
+        self.refreshConfig()
+
         return self.logconfig
