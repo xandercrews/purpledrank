@@ -107,7 +107,7 @@ vm                        hypervisor
 }                         }
 
 
-> by writing in a DSL which contains jsonpaths:
+> by writing in a query-style DSL which contains jsonpaths:
 
     WITH
     x in zpool:*,
@@ -115,6 +115,7 @@ vm                        hypervisor
     JOIN ON
     x.sourceid == y.sourceid,
     x._.id == y._.zpool
+
 
 and that dsl could contain references to methods (transforms) in some call table provided (as an argument or by decoration):
 
@@ -125,7 +126,7 @@ and that dsl could contain references to methods (transforms) in some call table
     strip_port_number(x._.portals) == strip_domain_name(y.target_portal)
 
 
-and maybe methods for mangling the documents:
+and/or maybe methods for mangling the documents:
 
    WITH
    flatten_disks(x) in zpool:*,
