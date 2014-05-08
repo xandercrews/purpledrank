@@ -1,0 +1,16 @@
+{
+  "sourceid": "twaughthammer",
+  "timestamp": "2014-05-08T01:51:16.042450+00:00",
+  "type": "cfgadm_disks",
+  "id": "c4t0d0",
+  "_": {
+    "name": "c4t0d0",
+    "rstate": "connected",
+    "controller": "sata1/0",
+    "sn": "JP9342TZ5784Q4",
+    "model": "Hitachi HDS721010CLA332",
+    "ostate": "configured",
+    "frev": "JP51A321",
+    "condition": "ok"
+  }
+}
