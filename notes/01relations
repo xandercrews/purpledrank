@@ -128,9 +128,38 @@ and that dsl could contain references to methods (transforms) in some call table
 
 and/or maybe methods for mangling the documents:
 
-   WITH
-   flatten_disks(x) in zpool:*,
-   y in harddisk:*
+   SELECT
+   flatten_disks(x) FROM zpool:*,
+   y FROM harddisk:*
    JOIN ON
    y._.id IN x.disks,
    x.sourceid == y.sourceid
+   RELATE
+   disk_of_relation(x,y)
+
+
+in an AST-like thing:
+
+select(
+    call_table_method(
+        'flatten_disks', free('x')
+    ).from('zpool:*'),
+    free('y').from('harddisk.*')
+).join_on(
+    json_path(free('x'), '_.id'),
+    or(
+        json_path(free('x'), 'sourceid'),
+        json_path(free('y'), 'sourceid')
+    )
+).relate(
+    call_table_method(
+        free('x'),
+        free('y')
+    )
+)
+
+.. you could also chain them together instead of composing some
+
+[options for implementing]
+> it's left undetermined how the key prefix might be specified in the json template method, but all of them need a way to express
+which objects might match against another.  this limits the number of records evaluated. key glob pattern seems as good as anything.
