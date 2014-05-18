@@ -109,7 +109,7 @@ vm                        hypervisor
 
 > by writing in a query-style DSL which contains jsonpaths:
 
-    WITH
+    SELECT
     x in zpool:*,
     y in zvol:*
     JOIN ON
@@ -119,14 +119,14 @@ vm                        hypervisor
 
 and that dsl could contain references to methods (transforms) in some call table provided (as an argument or by decoration):
 
-    WITH
+    SELECT
     x in comstar_tpg:*,
     y in iscsi_initiator:*
     JOIN ON
     strip_port_number(x._.portals) == strip_domain_name(y.target_portal)
 
 
-and/or maybe methods for mangling the documents:
+and/or maybe methods for mangling the documents, as in the left hand side of the first from statement here:
 
    SELECT
    flatten_disks(x) FROM zpool:*,
@@ -139,22 +139,23 @@ and/or maybe methods for mangling the documents:
 
 
 in an AST-like thing:
+(this AST thing that I made is grammatically correct- or nearly so- but semantically nonsensical)
 
-select(
+Select(
     call_table_method(
-        'flatten_disks', free('x')
-    ).from('zpool:*'),
-    free('y').from('harddisk.*')
-).join_on(
-    json_path(free('x'), '_.id'),
+        'flatten_disks', Free('x')
+    ).From('zpool:*'),
+    free('y').From('harddisk.*')
+).Join_On(
+    json_path(Free('x'), '_.id'),
     or(
-        json_path(free('x'), 'sourceid'),
-        json_path(free('y'), 'sourceid')
+        json_path(Free('x'), 'sourceid'),
+        json_path(Free('y'), 'sourceid')
     )
-).relate(
-    call_table_method(
-        free('x'),
-        free('y')
+).Relate(
+    call_table_method('disk_of_relation',
+        Free('x'),
+        Free('y')
     )
 )
 
