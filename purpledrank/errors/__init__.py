@@ -5,3 +5,6 @@ class ConfigNotFoundException(Exception):
 
 class ServiceNotConfiguredException(Exception):
     pass
+
+class NotYetImplementedException(Exception):
+    pass

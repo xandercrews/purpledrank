@@ -109,7 +109,7 @@ vm                        hypervisor
 
 > by writing in a query-style DSL which contains jsonpaths:
 
-    WITH
+    SELECT
     x in zpool:*,
     y in zvol:*
     JOIN ON
@@ -119,18 +119,48 @@ vm                        hypervisor
 
 and that dsl could contain references to methods (transforms) in some call table provided (as an argument or by decoration):
 
-    WITH
+    SELECT
     x in comstar_tpg:*,
     y in iscsi_initiator:*
     JOIN ON
     strip_port_number(x._.portals) == strip_domain_name(y.target_portal)
 
 
-and/or maybe methods for mangling the documents:
+and/or maybe methods for mangling the documents, as in the left hand side of the first from statement here:
 
-   WITH
-   flatten_disks(x) in zpool:*,
-   y in harddisk:*
+   SELECT
+   flatten_disks(x) FROM zpool:*,
+   y FROM harddisk:*
    JOIN ON
    y._.id IN x.disks,
    x.sourceid == y.sourceid
+   RELATE
+   disk_of_relation(x,y)
+
+
+in an AST-like thing:
+(this AST thing that I made is grammatically correct- or nearly so- but semantically nonsensical)
+
+Select(
+    call_table_method(
+        'flatten_disks', Free('x')
+    ).From('zpool:*'),
+    free('y').From('harddisk.*')
+).Join_On(
+    json_path(Free('x'), '_.id'),
+    or(
+        json_path(Free('x'), 'sourceid'),
+        json_path(Free('y'), 'sourceid')
+    )
+).Relate(
+    call_table_method('disk_of_relation',
+        Free('x'),
+        Free('y')
+    )
+)
+
+.. you could also chain them together instead of composing some
+
+[options for implementing]
+> it's left undetermined how the key prefix might be specified in the json template method, but all of them need a way to express
+which objects might match against another.  this limits the number of records evaluated. key glob pattern seems as good as anything.
