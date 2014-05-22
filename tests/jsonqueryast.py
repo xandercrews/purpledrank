@@ -68,7 +68,11 @@ import UserDict
 import operator
 import re
 
+from purpledrank.purpleutil import dictequal
 from purpledrank.redisutil import scan_iter, add_prefix
+
+# import msgpack as endecoder
+import json as endecoder
 
 import purpledrank.log
 purpledrank.log.init_logger()
@@ -346,7 +350,42 @@ class RedisQuery(object):
         return pmap
 
     @memoize
+    def relation_patterns(self):
+        relate = self.q.get_relation_node()
+
+        if relate is None:
+            return None
+
+        p = relate.predecessor
+        s = relate.successor
+
+        assert p.__class__ == Free, 'expected predecessor is Free variable'
+        assert s.__class__ == Free, 'expected successor is Free variable'
+
+        pvar = p.identifier
+        svar = s.identifier
+
+        relmap = {}
+
+        for c in self.q.get_select_criteria():
+            assert c.__class__ == From, 'expected select criteria is From pattern'
+            pat = c.pattern
+
+            assert c.parent.__class__ == Free, 'expected Free variable in select pattern'
+            if c.parent.identifier == pvar:
+                relmap['p'] = dict(var=c.parent.identifier, pattern=pat)
+            else:
+                assert c.parent.identifier == svar
+                relmap['s'] = dict(var=c.parent.identifier, pattern=pat)
+
+        return relmap
+
+    @memoize
     def linkNodePrefix(self):
+        return '_link\0%s' % self.actionLabel()
+
+    @memoize
+    def actionLabel(self):
         relate = self.q.get_relation_node()
         merge = self.q.get_merge_node()
 
@@ -357,8 +396,15 @@ class RedisQuery(object):
         else:
             raise NYI('merge identifier')
 
-        logger.info('prefix for query q=%d output %s' % (self.qid, label))
-        return '_link\0%s' % label
+        return label
+
+    @memoize
+    def outDocNodePrefix(self):
+        return self.actionLabel()
+
+    @memoize
+    def linkIndexPrefix(self):
+        return '_indexlink\0%s' % self.actionLabel()
 
     @memoize
     def linkNodeHashFunc(self):
@@ -463,6 +509,8 @@ class RedisQueryEngine(object):
         return linkkeys
 
     def _sweepLinkKeys(self, linkmap):
+        linkrels = set()
+
         for key, subkeys in linkmap.items():
             # sweep remaining subkeys of key
             if len(subkeys) == 0:
@@ -475,6 +523,7 @@ class RedisQueryEngine(object):
                         p.multi()
                         for skey in subkeys:
                             self.rconn.hdel(key, skey)
+                            linkrels.add(key)
                         p.execute()
 
                         logger.info('removed stale link node %s entries %s' % (key, ','.join(subkeys)))
@@ -484,6 +533,8 @@ class RedisQueryEngine(object):
                 except redis.WatchError:
                     pass
 
+        return linkrels
+
     def _runQueryAll(self, query):
         linknodeprefix = query.linkNodePrefix()
         pmap = query.keyPrefixMap()
@@ -491,16 +542,21 @@ class RedisQueryEngine(object):
         # find existing keys (mark)
         linkkeys = self._markLinkKeys('%s\0*' % linknodeprefix)
 
+        relatekeys = set()
+
         # iterate over each key from the prefixes
         for key in itertools.chain(*[scan_iter(self.rconn, p) for p in pmap.keys()]):
             v = self.rconn.get(key)
-            v = json.loads(v)
+            v = endecoder.loads(v)
 
             hasher = query.linkNodeHashFunc()
             linkhashes = dict(hasher(key, v))
 
+
             for h, criteria in linkhashes.items():
-                linkkey = self._addOrUpdateLinkNode(linknodeprefix, key, h, criteria)
+                linkkey, changed = self._addOrUpdateLinkNode(linknodeprefix, key, h, criteria)
+                if changed:
+                    relatekeys.add(linkkey)
                 try:
                     del linkkeys[linkkey][key]
                 except:
@@ -510,7 +566,12 @@ class RedisQueryEngine(object):
                     del linkkeys[linkkey]
 
         # remove remaining keys (sweep)
-        self._sweepLinkKeys(linkkeys)
+        dellinks = self._sweepLinkKeys(linkkeys)
+        relatekeys.update(dellinks)
+
+        # make relations nodes from link nodes
+        for k in relatekeys:
+            self._relateStep(query, k)
 
     def _runQueryOnce(self, query, key, v):
         linknodeprefix = query.linkNodePrefix()
@@ -526,6 +587,9 @@ class RedisQueryEngine(object):
                     if len(linkkeys[linkkey]) == 0:
                         del linkkeys[linkkey]
 
+
+                relatekeys = set()
+
                 if '_' in v and v['_'] is None:
                     # this is a deletion, no need to evaluate for links, just let it sweep existing links
                     logger.debug('received delete notification for %s' % key)
@@ -535,7 +599,11 @@ class RedisQueryEngine(object):
                     linkhashes = dict(hasher(key, v))
 
                     for h, criteria in linkhashes.items():
-                        linkkey = self._addOrUpdateLinkNode(linknodeprefix, key, h, criteria)
+                        linkkey, changed = self._addOrUpdateLinkNode(linknodeprefix, key, h, criteria)
+
+                        if changed:
+                            relatekeys.add(linkkey)
+
                         try:
                             del linkkeys[linkkey][key]
                         except:
@@ -545,12 +613,20 @@ class RedisQueryEngine(object):
                             del linkkeys[linkkey]
 
                 # sweep
-                self._sweepLinkKeys(linkkeys)
+                dellinks = self._sweepLinkKeys(linkkeys)
+                relatekeys.update(dellinks)
+
+                # make relations from link nodes
+                for k in relatekeys:
+                    self._relateStep(query, k)
+
                 break
+
 
     def _addOrUpdateLinkNode(self, linknodeprefix, key, h, criteria):
         # logger.debug('%s:%s -> %s (%s)' % (linknodeprefix, h, key, criteria))
         linkkey = add_prefix(linknodeprefix, str(h))
+        changed = False
         while True:
             try:
                 with self.rconn.pipeline() as p:
@@ -559,6 +635,7 @@ class RedisQueryEngine(object):
                     p.multi()
                     if old_criteria != criteria:
                         p.hset(linkkey, key, criteria)
+                        changed = True
                     else:
                         # logger.debug('no change to link key %s' % linkkey)
                         break
@@ -570,7 +647,7 @@ class RedisQueryEngine(object):
                 break
             except redis.WatchError, e:
                 pass
-        return linkkey
+        return linkkey, changed
 
     def _addKeyPrefix(self, p, qid):
         if p in self.key_prefixes:
@@ -580,6 +657,98 @@ class RedisQueryEngine(object):
             logger.info('found new key prefix %s' % p)
             self.key_prefixes[p] = [qid]
 
+    def _relateStep(self, query, linkkey):
+        relmap = query.relation_patterns()
+        if relmap is None:
+            return
+
+        relns = []
+
+        links = self.rconn.hgetall(linkkey)
+        if links is not None:
+            # pair up the criteria
+            reverse_links = {}
+            for dkey, criteria in links.items():
+                keys = reverse_links.setdefault(criteria, [])
+                keys.append(dkey)
+
+            for criteria, keys in reverse_links.items():
+                preds = []
+                succs = []
+                for key in keys:
+                    if fnmatch.fnmatch(key, relmap['p']['pattern']):
+                        preds.append(key)
+                    else:
+                        assert fnmatch.fnmatch(key, relmap['s']['pattern']), 'expected patterns present in the link node match those in the query'
+                        succs.append(key)
+                relns.extend(itertools.product(preds, succs))
+
+            label = query.outDocNodePrefix()
+
+        # mark relations
+        indexkey = '\0'.join((query.linkIndexPrefix(), linkkey))
+        linkrels = self._markRelations(indexkey)
+
+        # insert relations, if any
+        for r in relns:
+            logger.debug('adding %s relation %s' % (label, r))
+            d = dict(_from=r[0], _to=r[1], label=label, )
+            rkey = self._addOrUpdateRelation(indexkey, query.outDocNodePrefix(), d)
+            linkrels.discard(rkey)
+
+        # sweep relations
+        self._sweepRelations(indexkey, linkrels)
+
+    def _addOrUpdateRelation(self, indexkey, prefix, d):
+        rkey = '\0'.join((prefix, d['_from'], '\0' + d['_to']))
+
+        while True:
+            try:
+                update_record = False
+
+                with self.rconn.pipeline() as p:
+                    p.watch(rkey)
+
+                    r = p.get(rkey)
+
+                    if r is None:
+                        update_record = True
+                    else:
+                        old_data = endecoder.loads(r)
+
+                        if not isinstance(old_data, collections.Mapping):
+                            update_record = True
+                        elif not dictequal(d, old_data):
+                            update_record = True
+
+                    if update_record:
+                        p.multi()
+                        d = endecoder.dumps(d)
+                        p.set(rkey, d)
+                        p.sadd(indexkey, rkey)
+                        p.execute()
+                        self.rconn.publish(prefix, d)
+
+                break
+            except redis.WatchError:
+                pass
+
+        return rkey
+
+    def _markRelations(self, indexkey):
+        return self.rconn.smembers(indexkey)
+
+    def _sweepRelations(self, indexkey, rels):
+        if len(rels) > 0:
+            for key in rels:
+                self.rconn.delete(key)
+                logger.info('removed stale relation %s' % key)
+
+            self.rconn.srem(indexkey, rels)
+
+    def _mergeStep(self, query):
+        pass
+
     def subscriptionLoop(self):
         while True:
             for item in self.pubsub.listen():
@@ -587,7 +756,7 @@ class RedisQueryEngine(object):
                     continue
 
                 pattern, data = item['pattern'], item['data']
-                v = json.loads(data)
+                v = endecoder.loads(data)
 
                 assert pattern in self.key_prefixes
 

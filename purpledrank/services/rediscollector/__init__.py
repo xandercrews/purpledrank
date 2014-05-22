@@ -99,7 +99,7 @@ class RedisCollectionThread(threading.Thread):
                 if old_data is None:
                     update_record = True
                     logger.info('creating and publishing record %s' % redis_key)
-                elif old_data is not None:
+                else:
                     try:
                         old_data = endecoder.loads(old_data)
 
