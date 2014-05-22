@@ -64,6 +64,7 @@ import json
 import fnmatch
 import jsonpath_rw
 import pyhashxx
+import UserDict
 import operator
 
 from purpledrank.redisutil import scan_iter, make_prefix, add_prefix
@@ -238,13 +239,13 @@ class Merge(TerminalStreamNode):
 
 
 class Call_table_method(StreamQueryAST):
-    def __init__(self, methodname, *operands):
+    def __init__(self, method_name, *operands):
         StreamQueryAST.__init__(self, None)
+        self.method_name = method_name
         self.operands = operands
 
     def From(self, pattern):
         raise Exception('NYI')
-        # return From(self, pattern)
 
 
 class Free(StreamQueryAST):
@@ -289,12 +290,15 @@ class Or(StreamQueryAST):
 
 
 class RedisQuery(object):
+    JSON_PATH = 1
+    CALL_TABLE_JSON_PATH = 2
 
-    def __init__(self, q, qid):
+    def __init__(self, q, qid, call_table):
         logger.info('creating new query id=%d' % qid)
         self.q = q
         self.qid = qid
         self.initialized = False
+        self.call_table = call_table
 
     @memoize
     def keyPrefixMap(self):
@@ -311,20 +315,26 @@ class RedisQuery(object):
 
                 for j in self.q.get_join_criteria():
                     if j.__class__ == Equals:
-                        jtype = j.__class__
+                        pass
                     elif j.__class__ == In:
-                        jtype = j.__class__
+                        pass
                     else:
                         raise NYI('join criteria type %s' % str(j.__class__))
 
                     for v in (j.left, j.right):
                         if v.__class__ == Json_path:
-                            vtype = v.__class__
+                            vtype = (self.JSON_PATH, None)
+                        elif v.__class__ == Call_table_method:
+                            # TODO process more complicated arrangements
+                            if v.method_name not in self.call_table:
+                                raise Exception('call table method %s not available' % v.method_name)
+                            vtype = (self.CALL_TABLE_JSON_PATH, self.call_table[v.method_name])
+                            v = v.operands[0]
                         else:
                             raise NYI('join variable type %s' % str(v.__class__))
 
                         if v.var.identifier == freevar:
-                            rels[v.pattern] = 1
+                            rels[v.pattern] = vtype
 
             else:
                 raise NYI('select criteria type %s' % str(s.parent.__class__))
@@ -356,14 +366,27 @@ class RedisQuery(object):
         extractors = {p: [] for p in pmap.keys()}
 
         for pat, val in pmap.items():
-            for v in val:
-                def datumExtractor(path):
+            for v,t in val.items():
+                def jsonExtractor(path):
                     e = jsonpath_rw.parse(path)
                     def g(o):
                         return filter(None, [getattr(v, 'value') for v in e.find(o)])
                     return g
 
-                extractors[pat].append(datumExtractor(v))
+                # TODO handle more complicated arrangements
+                def callTableJsonExtractor(table_method, path):
+                    e = jsonpath_rw.parse(path)
+                    def g(o):
+                        vals = filter(None, [getattr(v, 'value') for v in e.find(o)])
+                        return map(table_method, vals)
+                    return g
+
+                typecode, opt = t
+
+                if typecode == self.JSON_PATH:
+                    extractors[pat].append(jsonExtractor(v))
+                elif typecode == self.CALL_TABLE_JSON_PATH:
+                    extractors[pat].append(callTableJsonExtractor(opt, v))
 
         def g(key, obj):
             for pat, e in extractors.items():
@@ -397,14 +420,14 @@ class RedisQueryEngine(object):
 
         self.qnum = 0
 
-        self.calltable = QueryCallTable()
+        self.call_table = QueryCallTable()
 
     def _disconnectRedis(self):
         logger.info('closing redis connections')
         self.rconn.connection_pool.disconnect()
 
     def addQuery(self, q):
-        rq = RedisQuery(q, self.qnum)
+        rq = RedisQuery(q, self.qnum, self.call_table)
         self.qnum += 1
 
         self.queries.append(rq)
@@ -559,7 +582,7 @@ class RedisQueryEngine(object):
                 v = json.loads(data)
 
 
-class QueryCallTable(object):
+class QueryCallTable(UserDict.DictMixin):
     def __init__(self):
         self.table = {}
 
@@ -568,6 +591,22 @@ class QueryCallTable(object):
             self.table[label] = f
         else:
             raise Exception('call already registered')
+
+    def __getitem__(self, item):
+        return self.table[item]
+
+    def keys(self):
+        return self.table.keys()
+
+    def __setitem__(self, item, val):
+        self.registerCall(item, val)
+
+    def __delitem__(self, key):
+        raise NYI('unregister call table routine')
+
+
+def zpool_from_zvol_id(zvolid):
+    return zvolid.strip('/').split('/')[0]
 
 
 def main():
@@ -664,11 +703,12 @@ def main():
         )
 
     rqe = RedisQueryEngine('localhost', 6379)
+    rqe.call_table['zpool_from_zvol_id'] = zpool_from_zvol_id
     rqe.addQuery(disk_query)
     rqe.addQuery(zvol_query)
     rqe.updateSubscriptions()
     rqe.initialQueries()
-    # rqe.subscriptionLoop()
+    rqe.subscriptionLoop()
 
 if __name__ == '__main__':
     main()
