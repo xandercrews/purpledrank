@@ -18,8 +18,8 @@ def scan_iter(rconn, match=None, count=None):
 def make_prefix(*components):
     '''
     make a prefix for keys based on components.
-    for now, check that no colons exist in the inputs and
-    concatenate with a colon
+    for now, check that no nulls exist in the inputs and
+    concatenate with a null
     '''
     for c in components:
         assert '\0' not in c, 'null (\\0) not allowed in key prefix component'
