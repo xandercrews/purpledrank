@@ -66,8 +66,9 @@ import jsonpath_rw
 import pyhashxx
 import UserDict
 import operator
+import re
 
-from purpledrank.redisutil import scan_iter, make_prefix, add_prefix
+from purpledrank.redisutil import scan_iter, add_prefix
 
 import purpledrank.log
 purpledrank.log.init_logger()
@@ -357,7 +358,7 @@ class RedisQuery(object):
             raise NYI('merge identifier')
 
         logger.info('prefix for query q=%d output %s' % (self.qid, label))
-        return label
+        return '_link\0%s' % label
 
     @memoize
     def linkNodeHashFunc(self):
@@ -477,7 +478,9 @@ class RedisQueryEngine(object):
                         p.execute()
 
                         logger.info('removed stale link node %s entries %s' % (key, ','.join(subkeys)))
-                        break
+
+                    self.rconn.publish(key, '')
+                    break
                 except redis.WatchError:
                     pass
 
@@ -523,26 +526,31 @@ class RedisQueryEngine(object):
                     if len(linkkeys[linkkey]) == 0:
                         del linkkeys[linkkey]
 
-                hasher = query.linkNodeHashFunc()
-                linkhashes = dict(hasher(key, v))
+                if '_' in v and v['_'] is None:
+                    # this is a deletion, no need to evaluate for links, just let it sweep existing links
+                    logger.debug('received delete notification for %s' % key)
+                else:
+                    # this is an update
+                    hasher = query.linkNodeHashFunc()
+                    linkhashes = dict(hasher(key, v))
 
-                for h, criteria in linkhashes.items():
-                    linkkey = self._addOrUpdateLinkNode(linknodeprefix, key, h, criteria)
-                    try:
-                        del linkkeys[linkkey][key]
-                    except:
-                        pass
+                    for h, criteria in linkhashes.items():
+                        linkkey = self._addOrUpdateLinkNode(linknodeprefix, key, h, criteria)
+                        try:
+                            del linkkeys[linkkey][key]
+                        except:
+                            pass
 
-                    if linkkey in linkkeys and len(linkkeys[linkkey]) == 0:
-                        del linkkeys[linkkey]
+                        if linkkey in linkkeys and len(linkkeys[linkkey]) == 0:
+                            del linkkeys[linkkey]
 
                 # sweep
                 self._sweepLinkKeys(linkkeys)
                 break
 
     def _addOrUpdateLinkNode(self, linknodeprefix, key, h, criteria):
-        logger.info('%s:%s -> %s (%s)' % (linknodeprefix, h, key, criteria))
-        linkkey = make_prefix(linknodeprefix, str(h))
+        # logger.debug('%s:%s -> %s (%s)' % (linknodeprefix, h, key, criteria))
+        linkkey = add_prefix(linknodeprefix, str(h))
         while True:
             try:
                 with self.rconn.pipeline() as p:
@@ -556,7 +564,7 @@ class RedisQueryEngine(object):
                         break
                     p.execute()
 
-                logger.info('publishing update to link node %s' % linkkey)
+                logger.info('publishing update to link node %s, %s' % (linkkey, key))
                 self.rconn.publish(linkkey, '')
 
                 break
@@ -577,9 +585,20 @@ class RedisQueryEngine(object):
             for item in self.pubsub.listen():
                 if item['type'].endswith('subscribe'):
                     continue
-                logger.info(item)
+
                 pattern, data = item['pattern'], item['data']
                 v = json.loads(data)
+
+                assert pattern in self.key_prefixes
+
+                qids = self.key_prefixes[pattern]
+                for qid in qids:
+                    query = filter(lambda q: operator.attrgetter('qid')(q) == qid, self.queries)
+                    assert 0 <= len(query) <= 1
+                    if len(query) == 0:
+                        continue
+                    query = query[0]
+                    self._runQueryOnce(query, v['rkey'], v)
 
 
 class QueryCallTable(UserDict.DictMixin):
@@ -608,6 +627,15 @@ class QueryCallTable(UserDict.DictMixin):
 def zpool_from_zvol_id(zvolid):
     return zvolid.strip('/').split('/')[0]
 
+slicepat = re.compile('(.*)(s\d+)$')
+
+def strip_disk_slice(diskname):
+    m = re.match(slicepat, diskname)
+
+    if m is None:
+        return diskname
+    else:
+        return m.group(1)
 
 def main():
     # SELECT
@@ -668,6 +696,15 @@ def main():
     # A example based on the real values in the redis store
     ###
 
+    # SELECT
+    # x FROM zpool_status\0*,
+    # y FROM cfgadm_disks\0*
+    # JOIN ON
+    # y.id IN strip_disk_slice(x._..disks[*].name)
+    # x.sourceid == y.sourceid
+    # RELATE
+    # x disk_of y
+
     disk_query = \
         Select(
             Free('x').From('zpool_status\0*'),
@@ -675,7 +712,7 @@ def main():
         ).Join_On(
             In(
                 Json_path(Free('y'), 'id'),
-                Json_path(Free('x'), '_..disks[*].name')
+                Call_table_method('strip_disk_slice', Json_path(Free('x'), '_..disks[*].name')),
             ),
             Equals(
                 Json_path(Free('x'), 'sourceid'),
@@ -704,6 +741,7 @@ def main():
 
     rqe = RedisQueryEngine('localhost', 6379)
     rqe.call_table['zpool_from_zvol_id'] = zpool_from_zvol_id
+    rqe.call_table['strip_disk_slice'] = strip_disk_slice
     rqe.addQuery(disk_query)
     rqe.addQuery(zvol_query)
     rqe.updateSubscriptions()

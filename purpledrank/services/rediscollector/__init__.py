@@ -7,6 +7,8 @@ from ...redisutil import scan_iter, make_prefix, add_prefix
 
 from ...purpleutil import dictequal
 
+from ...errors import NotYetImplementedException
+
 from ..baseservice import BaseService
 
 import sys
@@ -49,7 +51,9 @@ class RedisCollectionThread(threading.Thread):
     def run(self):
         self.stopevent = threading.Event()
 
-        def cb():
+        def periodic_cb():
+            previous_keys = set(scan_iter(self.rconn, '%s\0*' % self.redis_key_prefix))
+
             data = self.collection_method()
 
             logger.debug('collected objects from agent %s method %s' % (self.agentid, self.method))
@@ -86,6 +90,8 @@ class RedisCollectionThread(threading.Thread):
                 redis_key = add_prefix(self.redis_key_prefix, _sourceid, _type, _id)
                 redis_pub_key = add_prefix(self.redis_pub_key_prefix, _type)
 
+                d['rkey'] = redis_key
+
                 old_data = self.rconn.get(redis_key)
 
                 update_record = False
@@ -119,18 +125,48 @@ class RedisCollectionThread(threading.Thread):
 
                 process_keys.append(redis_key)
 
-            return process_keys
+            stale_keys = previous_keys - set(process_keys)
+            logger.info('found %d stale keys, removing' % len(stale_keys))
+            logger.debug('stale keys: [%s]' % ', '.join(stale_keys))
 
-        previous_keys = set(scan_iter(self.rconn, '%s\0*' % self.redis_key_prefix))
-        new_keys = set(cb())
+            for dkey in stale_keys:
+                while True:
+                    try:
+                        with self.rconn.pipeline() as p:
+                            p.watch(dkey)
+                            v = p.get(dkey)
+                            logger.debug(v)
+                            if v is None:
+                                break
+                            v = endecoder.loads(v)
 
-        stale_keys = previous_keys - new_keys
-        logger.info('found %d stale keys, removing' % len(stale_keys))
-        logger.debug('stale keys: [%s]' % ', '.join(stale_keys))
-        self.rconn.delete(stale_keys)
+                            _id = v['id']
+                            _type = v['type']
+                            _sourceid = v['sourceid']
 
-        self.pt = PeriodicTimer(self.interval, cb, immediate=False)
-        self.pt.loop(self.stopevent)
+                            redis_key = add_prefix(self.redis_key_prefix, _sourceid, _type, _id)
+                            redis_pub_key = add_prefix(self.redis_pub_key_prefix, _type)
+
+                            p.multi()
+                            v['rkey'] = redis_key
+                            v['_'] = None
+                            p.delete(dkey)
+                            p.execute()
+
+                        v = endecoder.dumps(v)
+                        self.rconn.publish(redis_pub_key, v)
+                        break
+                    except redis.WatchError, e:
+                        pass
+
+        def streaming_cb():
+            raise NotYetImplementedException()
+
+        if self.interval is not None:
+            self.pt = PeriodicTimer(self.interval, periodic_cb, immediate=True)
+            self.pt.loop(self.stopevent)
+        else:
+            streaming_cb()
 
     def stop(self):
         # TODO finish
@@ -156,7 +192,7 @@ class RedisCollectorService(BaseService):
             name = source['name']
             host, port = source['host'], source['port']
             method = source['method']
-            interval = source['interval']
+            interval = source.get('interval', None)
             args = source['args']
             t = RedisCollectionThread(name, host, port, interval, method, args, self.redis_conn)
             self.workers.append(t)
