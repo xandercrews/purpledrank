@@ -113,8 +113,9 @@ class RedisCollectionThread(threading.Thread):
                         update_record = True
 
                 if update_record:
-                    self.rconn.set(redis_key, endecoder.dumps(d))
-                    self.rconn.publish(redis_pub_key, endecoder.dumps(dict(key=redis_key)))
+                    r = endecoder.dumps(d)
+                    self.rconn.set(redis_key, r)
+                    self.rconn.publish(redis_pub_key, r)
 
                 process_keys.append(redis_key)
 

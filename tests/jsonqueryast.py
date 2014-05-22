@@ -629,7 +629,7 @@ def main():
     # A example based on the real values in the redis store
     ###
 
-    queryast = \
+    disk_query = \
         Select(
             Free('x').From('zpool_status\0*'),
             Free('y').From('cfgadm_disks\0*'),
@@ -646,11 +646,29 @@ def main():
             Free('x'), 'disk_of', Free('y')
         )
 
+    zvol_query = \
+        Select(
+            Free('x').From('zvol_properties\0*'),
+            Free('y').From('zpool_status\0*'),
+        ).Join_On(
+            Equals(
+                Json_path(Free('y'), 'id'),
+                Call_table_method('zpool_from_zvol_id', Json_path(Free('x'), 'id')),
+            ),
+            Equals(
+                Json_path(Free('x'), 'sourceid'),
+                Json_path(Free('y'), 'sourceid'),
+            )
+        ).Relate(
+            Free('x'), 'zvol_of', Free('y')
+        )
+
     rqe = RedisQueryEngine('localhost', 6379)
-    rqe.addQuery(queryast)
+    rqe.addQuery(disk_query)
+    rqe.addQuery(zvol_query)
     rqe.updateSubscriptions()
     rqe.initialQueries()
-    rqe.subscriptionLoop()
+    # rqe.subscriptionLoop()
 
 if __name__ == '__main__':
     main()
