@@ -60,7 +60,6 @@ import collections
 import redis
 import functools
 import itertools
-import json
 import fnmatch
 import jsonpath_rw
 import pyhashxx
@@ -289,6 +288,12 @@ class Json_path(StreamQueryAST):
         self.pattern = pattern
 
 
+class Static(StreamQueryAST):
+    def __init__(self, val):
+        StreamQueryAST.__init__(self, None)
+        self.val = val
+
+
 class Or(StreamQueryAST):
     def __init__(self, alternates):
         StreamQueryAST.__init__(self, None)
@@ -297,6 +302,7 @@ class Or(StreamQueryAST):
 class RedisQuery(object):
     JSON_PATH = 1
     CALL_TABLE_JSON_PATH = 2
+    STATIC = 3
 
     def __init__(self, q, qid, call_table):
         logger.info('creating new query id=%d' % qid)
@@ -312,7 +318,7 @@ class RedisQuery(object):
         for s in self.q.get_select_criteria():
             assert s.__class__ == From, 'expected select criteria is from pattern'
 
-            rels = collections.OrderedDict()
+            rels = []
 
             if s.parent.__class__ == Free:
                 # find relational criteria
@@ -326,20 +332,35 @@ class RedisQuery(object):
                     else:
                         raise NYI('join criteria type %s' % str(j.__class__))
 
-                    for v in (j.left, j.right):
-                        if v.__class__ == Json_path:
-                            vtype = (self.JSON_PATH, None)
-                        elif v.__class__ == Call_table_method:
-                            # TODO process more complicated arrangements
-                            if v.method_name not in self.call_table:
-                                raise Exception('call table method %s not available' % v.method_name)
-                            vtype = (self.CALL_TABLE_JSON_PATH, self.call_table[v.method_name])
-                            v = v.operands[0]
+                    if bool(j.left.__class__ == Static) ^ bool(j.right.__class__ == Static):
+                        if j.left.__class__ == Static:
+                            static = j.left
+                            jp = j.right
                         else:
-                            raise NYI('join variable type %s' % str(v.__class__))
+                            static = j.right
+                            jp = j.left
+                        assert jp.__class__ == Json_path
+                        if jp.var.identifier == freevar:
+                            vargs = (self.STATIC, jp.pattern, static.val)
+                            rels.append(vargs)
+                    elif j.left.__class__ != Static and j.right.__class__ != Static:
+                        for v in (j.left, j.right):
+                            if v.__class__ == Json_path:
+                                if v.var.identifier == freevar:
+                                    vargs = (self.JSON_PATH, v.pattern)
+                                    rels.append(vargs)
+                            elif v.__class__ == Call_table_method:
+                                # TODO process more complicated arrangements
+                                if v.method_name not in self.call_table:
+                                    raise Exception('call table method %s not available' % v.method_name)
 
-                        if v.var.identifier == freevar:
-                            rels[v.pattern] = vtype
+                                if v.operands[0].var.identifier == freevar:
+                                    vargs = (self.CALL_TABLE_JSON_PATH, self.call_table[v.method_name], v.operands[0].pattern)
+                                    rels.append(vargs)
+                            else:
+                                raise NYI('join variable type %s' % str(v.__class__))
+                    else:
+                        raise NYI('two static operands')
 
             else:
                 raise NYI('select criteria type %s' % str(s.parent.__class__))
@@ -413,7 +434,7 @@ class RedisQuery(object):
         extractors = {p: [] for p in pmap.keys()}
 
         for pat, val in pmap.items():
-            for v,t in val.items():
+            for t in val:
                 def jsonExtractor(path):
                     e = jsonpath_rw.parse(path)
                     def g(o):
@@ -428,24 +449,52 @@ class RedisQuery(object):
                         return map(table_method, vals)
                     return g
 
-                typecode, opt = t
+                def staticValueChecker(path, val):
+                    e = jsonpath_rw.parse(path)
+                    def g(o):
+                        vals = filter(None, [getattr(v, 'value') for v in e.find(o)])
+                        vals = map(lambda v: v == val, vals)
+                        if True in vals:
+                            return True
+                        return False
+                    return g
+
+                typecode = t[0]
 
                 if typecode == self.JSON_PATH:
-                    extractors[pat].append(jsonExtractor(v))
+                    _, path = t
+                    extractors[pat].append(jsonExtractor(path))
                 elif typecode == self.CALL_TABLE_JSON_PATH:
-                    extractors[pat].append(callTableJsonExtractor(opt, v))
+                    _, methodname, path = t
+                    extractors[pat].append(callTableJsonExtractor(methodname, path))
+                elif typecode == self.STATIC:
+                    _, path, val = t
+                    extractors[pat].append(staticValueChecker(path, val))
+                else:
+                    raise NYI('other types of extractors')
 
         def g(key, obj):
             for pat, e in extractors.items():
                 if fnmatch.fnmatch(key, pat):
+                    unhashable = False
                     vals = []
 
                     for f in e:
-                        vals.append(f(obj))
+                        v = f(obj)
+                        if isinstance(v, bool):
+                            if not v:
+                                unhashable = True
+                                break
+                        else:
+                            vals.append(f(obj))
+
+                    if unhashable:
+                        logger.debug('pat %s obj %s is unhashable' % (pat, key))
+                        continue
 
                     for v in itertools.product(*vals):
                         s = str('\0'.join(v))
-                        # logger.debug('hash string for %s %s' % (key, s))
+                        logger.debug('hash string for %s %s' % (key, s))
                         yield pyhashxx.hashxx(s), s
                     break
 
@@ -552,7 +601,6 @@ class RedisQueryEngine(object):
             hasher = query.linkNodeHashFunc()
             linkhashes = dict(hasher(key, v))
 
-
             for h, criteria in linkhashes.items():
                 linkkey, changed = self._addOrUpdateLinkNode(linknodeprefix, key, h, criteria)
                 if changed:
@@ -586,7 +634,6 @@ class RedisQueryEngine(object):
                     linkkeys[linkkey] = { sk: 1 for sk in filter(lambda k: k == key, subkeys.keys()) }
                     if len(linkkeys[linkkey]) == 0:
                         del linkkeys[linkkey]
-
 
                 relatekeys = set()
 
@@ -806,6 +853,12 @@ def strip_disk_slice(diskname):
     else:
         return m.group(1)
 
+def strip_zvol_parentdir(datafile):
+    PARENTDIR = '/dev/zvol/rdsk/'
+    if datafile.startswith(PARENTDIR):
+        return datafile[len(PARENTDIR):]
+    return datafile
+
 def main():
     # SELECT
     # flatten_disks(x) from zpool:*,
@@ -886,7 +939,15 @@ def main():
             Equals(
                 Json_path(Free('x'), 'sourceid'),
                 Json_path(Free('y'), 'sourceid'),
-                )
+            ),
+            Equals(
+                Json_path(Free('x'), 'type'),
+                Static('zpool_status')
+            ),
+            Equals(
+                Json_path(Free('y'), 'type'),
+                Static('cfgadm_disks')
+            )
         ).Relate(
             Free('x'), 'disk_of', Free('y')
         )
@@ -903,16 +964,129 @@ def main():
             Equals(
                 Json_path(Free('x'), 'sourceid'),
                 Json_path(Free('y'), 'sourceid'),
+            ),
+            Equals(
+                Json_path(Free('x'), 'type'),
+                Static('zvol_properties')
+            ),
+            Equals(
+                Json_path(Free('y'), 'type'),
+                Static('zpool_status')
             )
         ).Relate(
             Free('x'), 'zvol_of', Free('y')
         )
 
+    zpool_prop_query = \
+        Select(
+            Free('x').From('zpool_props\0*'),
+            Free('y').From('zpool_status\0*'),
+        ).Join_On(
+            Equals(
+                Json_path(Free('y'), 'id'),
+                Call_table_method('zpool_from_zvol_id', Json_path(Free('x'), 'id')),
+            ),
+            Equals(
+                Json_path(Free('x'), 'sourceid'),
+                Json_path(Free('y'), 'sourceid'),
+            ),
+            Equals(
+                Json_path(Free('x'), 'type'),
+                Static('zpool_properties')
+            ),
+            Equals(
+                Json_path(Free('y'), 'type'),
+                Static('zpool_status')
+            )
+        ).Relate(
+            Free('x'), 'zpool_properties_of', Free('y')
+        )
+
+    stmf_lun_vol = \
+        Select(
+            Free('x').From('stmf_targets\0*\0stmf_luns\0*'),
+            Free('y').From('zvol_properties\0*')
+        ).Join_On(
+            Equals(
+                Call_table_method('strip_zvol_parentdir', Json_path(Free('x'), '_.data_file')),
+                Json_path(Free('y'), 'id')
+            ),
+            Equals(
+                Json_path(Free('x'), 'sourceid'),
+                Json_path(Free('y'), 'sourceid'),
+            ),
+            Equals(
+                Json_path(Free('x'), 'type'),
+                Static('stmf_luns')
+            ),
+            Equals(
+                Json_path(Free('y'), 'type'),
+                Static('zvol_properties')
+            )
+        ).Relate(
+            Free('x'), 'lun_of', Free('y')
+        )
+
+    target_tpg = \
+        Select(
+            Free('x').From('itadm_properties\0*\0itadm_tpgs\0*'),
+            Free('y').From('itadm_properties\0*\0itadm_targets\0*'),
+        ).Join_On(
+            Equals(
+                Json_path(Free('x'), 'id'),
+                Json_path(Free('y'), '_.tpg'),
+            ),
+            Equals(
+                Json_path(Free('x'), 'sourceid'),
+                Json_path(Free('y'), 'sourceid'),
+                ),
+            Equals(
+                Json_path(Free('x'), 'type'),
+                Static('itadm_tpgs')
+            ),
+            Equals(
+                Json_path(Free('y'), 'type'),
+                Static('itadm_targets')
+            )
+        ).Relate(
+            Free('x'), 'tpg_of', Free('y')
+        )
+
+    lun_hg = \
+        Select(
+            Free('x').From('stmf_targets\0*\0stmf_luns\0*'),
+            Free('y').From('stmf_targets*\0*\0stmf_hgs\0*'),
+        ).Join_On(
+            Equals(
+                Json_path(Free('x'), '_.views..host_group[*]'),
+                Json_path(Free('y'), 'id'),
+                ),
+            Equals(
+                Json_path(Free('x'), 'sourceid'),
+                Json_path(Free('y'), 'sourceid'),
+                ),
+            Equals(
+                Json_path(Free('x'), 'type'),
+                Static('stmf_luns')
+            ),
+            Equals(
+                Json_path(Free('y'), 'type'),
+                Static('stmf_hgs')
+            )
+        ).Relate(
+            Free('x'), 'hg_of', Free('y')
+        )
+
     rqe = RedisQueryEngine('localhost', 6379)
     rqe.call_table['zpool_from_zvol_id'] = zpool_from_zvol_id
     rqe.call_table['strip_disk_slice'] = strip_disk_slice
+    rqe.call_table['strip_zvol_parentdir'] =  strip_zvol_parentdir
     rqe.addQuery(disk_query)
     rqe.addQuery(zvol_query)
+    rqe.addQuery(zpool_prop_query)
+    rqe.addQuery(stmf_lun_vol)
+    rqe.addQuery(target_tpg)
+    rqe.addQuery(lun_hg)
     rqe.updateSubscriptions()
     rqe.initialQueries()
     rqe.subscriptionLoop()
