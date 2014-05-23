@@ -1,6 +1,5 @@
 __author__ = 'achmed'
 
-from __future__ import with_statement
 from contextlib import closing
 
 from .. import backendutil
