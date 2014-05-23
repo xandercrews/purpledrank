@@ -1,5 +1,8 @@
 __author__ = 'achmed'
 
+from __future__ import with_statement
+from contextlib import closing
+
 from .. import backendutil
 
 import os
@@ -70,8 +73,9 @@ class KVMInventoryInterface(object):
         vmpath = self._resolveVmPath(vmname)
 
         try:
-            with open(vmpath, os.O_CREAT) as fd:
-                json.dump(vm, fd)
+            fd = os.open(vmpath, os.O_CREAT|os.O_WRONLY|os.O_EXCL)
+            with closing(os.fdopen(fd, 'w')) as f:
+                json.dump(vm, f)
         except IOError, e:
             print e
             print dir(e)
