@@ -853,6 +853,12 @@ def strip_disk_slice(diskname):
     else:
         return m.group(1)
 
+def strip_zvol_parentdir(datafile):
+    PARENTDIR = '/dev/zvol/rdsk/'
+    if datafile.startswith(PARENTDIR):
+        return datafile[len(PARENTDIR):]
+    return datafile
+
 def main():
     # SELECT
     # flatten_disks(x) from zpool:*,
@@ -996,12 +1002,39 @@ def main():
             Free('x'), 'zpool_properties_of', Free('y')
         )
 
+    stmf_lun_vol = \
+        Select(
+            Free('x').From('stmf_targets\0*\0stmf_luns\0*'),
+            Free('y').From('zvol_properties\0*')
+        ).Join_On(
+            Equals(
+                Call_table_method('strip_zvol_parentdir', Json_path(Free('x'), '_.data_file')),
+                Json_path(Free('y'), 'id')
+            ),
+            Equals(
+                Json_path(Free('x'), 'sourceid'),
+                Json_path(Free('y'), 'sourceid'),
+            ),
+            Equals(
+                Json_path(Free('x'), 'type'),
+                Static('stmf_luns')
+            ),
+            Equals(
+                Json_path(Free('y'), 'type'),
+                Static('zvol_properties')
+            )
+        ).Relate(
+            Free('x'), 'lun_of', Free('y')
+        )
+
     rqe = RedisQueryEngine('localhost', 6379)
     rqe.call_table['zpool_from_zvol_id'] = zpool_from_zvol_id
     rqe.call_table['strip_disk_slice'] = strip_disk_slice
+    rqe.call_table['strip_zvol_parentdir'] =  strip_zvol_parentdir
     rqe.addQuery(disk_query)
     rqe.addQuery(zvol_query)
     rqe.addQuery(zpool_prop_query)
+    rqe.addQuery(stmf_lun_vol)
     rqe.updateSubscriptions()
     rqe.initialQueries()
     rqe.subscriptionLoop()
