@@ -69,8 +69,13 @@ class KVMInventoryInterface(object):
 
         vmpath = self._resolveVmPath(vmname)
 
-        with open(vmpath, 'w') as fd:
-            json.dump(vm, fd)
+        try:
+            with open(vmpath, os.O_CREAT) as fd:
+                json.dump(vm, fd)
+        except IOError, e:
+            print e
+            print dir(e)
+            raise
 
         return vmname
 
