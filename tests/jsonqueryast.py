@@ -1027,6 +1027,56 @@ def main():
             Free('x'), 'lun_of', Free('y')
         )
 
+    target_tpg = \
+        Select(
+            Free('x').From('itadm_properties\0*\0itadm_tpgs\0*'),
+            Free('y').From('itadm_properties\0*\0itadm_targets\0*'),
+        ).Join_On(
+            Equals(
+                Json_path(Free('x'), 'id'),
+                Json_path(Free('y'), '_.tpg'),
+            ),
+            Equals(
+                Json_path(Free('x'), 'sourceid'),
+                Json_path(Free('y'), 'sourceid'),
+                ),
+            Equals(
+                Json_path(Free('x'), 'type'),
+                Static('itadm_tpgs')
+            ),
+            Equals(
+                Json_path(Free('y'), 'type'),
+                Static('itadm_targets')
+            )
+        ).Relate(
+            Free('x'), 'tpg_of', Free('y')
+        )
+
+    lun_hg = \
+        Select(
+            Free('x').From('stmf_targets\0*\0stmf_luns\0*'),
+            Free('y').From('stmf_targets*\0*\0stmf_hgs\0*'),
+        ).Join_On(
+            Equals(
+                Json_path(Free('x'), '_.views..host_group[*]'),
+                Json_path(Free('y'), 'id'),
+                ),
+            Equals(
+                Json_path(Free('x'), 'sourceid'),
+                Json_path(Free('y'), 'sourceid'),
+                ),
+            Equals(
+                Json_path(Free('x'), 'type'),
+                Static('stmf_luns')
+            ),
+            Equals(
+                Json_path(Free('y'), 'type'),
+                Static('stmf_hgs')
+            )
+        ).Relate(
+            Free('x'), 'hg_of', Free('y')
+        )
+
     rqe = RedisQueryEngine('localhost', 6379)
     rqe.call_table['zpool_from_zvol_id'] = zpool_from_zvol_id
     rqe.call_table['strip_disk_slice'] = strip_disk_slice
@@ -1035,6 +1085,8 @@ def main():
     rqe.addQuery(zvol_query)
     rqe.addQuery(zpool_prop_query)
     rqe.addQuery(stmf_lun_vol)
+    rqe.addQuery(target_tpg)
+    rqe.addQuery(lun_hg)
     rqe.updateSubscriptions()
     rqe.initialQueries()
     rqe.subscriptionLoop()
