@@ -10,6 +10,9 @@
 zfs-role: &zfs
   service: purpledrank.services.zfs.ZFSService
 
+kvm-role: &kvm
+  service: purpledrank.services.kvm.KVMService
+
 test-service: &test-service
   service: purpledrank.services.test.TestService
 
@@ -59,10 +62,14 @@ collector-service: &collector
   redis:
     << : *redis-config
 
-discretizer-service: &discretizer
-  host: xander:esc.aperobot.net
-  port: 9293
+sync-service: &sync
+  redis:
+    << : *redis-config
 
 xander-xerbuyi:
   host: xander.esc.aperobot.net
   << : *collector
+
+beastmode1-rsaj8th:
+  host: beastmode.mgmt.aperobot.net
+  << : *kvm
