@@ -65,6 +65,8 @@ class KVMInventoryInterface(object):
             d = json.load(fd)
             self._validateVm(d)
 
+        return d
+
     # create a new vm based on a descriptor
     def createVm(self, vm):
         if isinstance(vm, collections.Mapping):
@@ -113,12 +115,15 @@ class KVMInventoryInterface(object):
 class KVMControlInterface(object):
     KVM_COMMAND_LINE = "/usr/bin/kvm"
 
-    def __init__(self, inventory, piddir):
+    def __init__(self, inventory, piddir='/var/run/kvm'):
         self.inventory = inventory
 
     # start or stop a kvm virtual machine by name
     def start(self, vmname):
         vm = self.inventory.getVm(vmname)
+
+        if vm is None:
+            raise Exception('vm \'\' does not exist')
 
         cmdlines = self._vmToCommandLine(vm)
 
