@@ -11,6 +11,8 @@ import glob
 
 import collections
 
+import subprocess
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -37,7 +39,7 @@ class KVMInventoryInterface(object):
 
         with open(vmpath, 'r') as fd:
             d = json.load(fd)
-            self._validateVm(name, d)
+            self._validateVm(d, name)
 
         return True
 
@@ -50,11 +52,18 @@ class KVMInventoryInterface(object):
 
             with open(filename, 'r') as fd:
                 d = json.load(fd)
-                self._validateVm(vmname, d)
+                self._validateVm(d, vmname)
 
             vms.append(vmname)
 
         return vms
+
+    def getVm(self, name):
+        vmpath = self._resolveVmPath(name)
+
+        with open(vmpath, 'r') as fd:
+            d = json.load(fd)
+            self._validateVm(d)
 
     # create a new vm based on a descriptor
     def createVm(self, vm):
@@ -71,14 +80,9 @@ class KVMInventoryInterface(object):
 
         vmpath = self._resolveVmPath(vmname)
 
-        try:
-            fd = os.open(vmpath, os.O_CREAT|os.O_WRONLY|os.O_EXCL)
-            with closing(os.fdopen(fd, 'w')) as f:
-                json.dump(vm, f)
-        except IOError, e:
-            print e
-            print dir(e)
-            raise
+        fd = os.open(vmpath, os.O_CREAT|os.O_WRONLY|os.O_EXCL)
+        with closing(os.fdopen(fd, 'w')) as f:
+            json.dump(vm, f, indent=2)
 
         return vmname
 
@@ -107,12 +111,63 @@ class KVMInventoryInterface(object):
 
 
 class KVMControlInterface(object):
+    KVM_COMMAND_LINE = "/usr/bin/kvm"
+
     def __init__(self, inventory, piddir):
         self.inventory = inventory
 
     # start or stop a kvm virtual machine by name
     def start(self, vmname):
-        pass
+        vm = self.inventory.getVm(vmname)
+
+        cmdlines = self._vmToCommandLine(vm)
+
+        p = subprocess.Popen([ self.KVM_COMMAND_LINE ] + cmdlines, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=None)
+        out,err = p.communicate()
+
+        if p.returncode != 0:
+            raise Exception('failed to start vm: %s' % err)
 
     def stop(self, vmname):
         pass
+
+    def _vmToCommandLine(self, vm):
+        cmdlines = []
+
+        # vm name
+        cmdlines += [ "-name", "%s" % vm['name'] ]
+
+        # cpu mem
+        cmdlines += [ "-smp", "%d" % vm['vcpu'] ]
+        cmdlines += [ "-memory", "%d" % vm['memory'] ]
+
+        # nic stuff
+        if 'nics' in vm:
+            for nic in vm['nics']:
+                pass
+
+        # disk stuff
+        if 'disks' in vm:
+            for disk in vm['disks']:
+                pass
+
+        # spice display
+        if 'spice' in vm['display']:
+            spice = vm['display']['spice']
+            spiceline = 'port=%d' % spice['port']
+            if 'disable-ticketing' in spice and spice['disable-ticketing']:
+                spiceline += ',disable-ticketing'
+            cmdlines += [ '-spice', spiceline ]
+            cmdlines += [ '-vga', 'qxl' ]
+
+        # vnc display
+        if 'vnc' in vm['display']:
+            vnc = vm['display']['vnc']
+            assert 5900 <= vnc['port'] <= 65535
+            cmdlines += [ '-vnc', ':%d' % (vnc['port'] - 5900) ]
+
+        # standard stuff
+        cmdlines += [ "-daemonize" ]
+        cmdlines += [ "-usbdevice", "tablet" ]
+
+        return cmdlines
