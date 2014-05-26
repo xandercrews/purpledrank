@@ -131,14 +131,6 @@ class KVMControlInterface(object):
         out,err = p.communicate()
 
         if p.returncode != 0:
-            raise Exception('failed to create vm \'%s\': %s' % (vmname, str(err)))
-
-        cmdlines = self._vmToCommandLine(vm)
-
-        p = subprocess.Popen([ self.KVM_COMMAND_LINE ] + cmdlines, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=None)
-        out,err = p.communicate()
-
-        if p.returncode != 0:
             raise Exception('failed to start vm: %s' % err)
 
     def stop(self, vmname):
