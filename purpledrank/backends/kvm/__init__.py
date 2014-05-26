@@ -123,14 +123,15 @@ class KVMControlInterface(object):
         vm = self.inventory.getVm(vmname)
 
         if vm is None:
-            raise Exception('vm \'\' does not exist')
+            raise Exception('vm \'%s\' does not exist' % vmname)
 
         cmdlines = self._vmToCommandLine(vm)
 
         p = subprocess.Popen([ self.KVM_COMMAND_LINE ] + cmdlines, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=None)
         out,err = p.communicate()
 
-        if p.returncode != 0:            raise Exception('vm \'\' does not exist')
+        if p.returncode != 0:
+            raise Exception('failed to create vm \'%s\': %s' % (vmname, str(err)))
 
         cmdlines = self._vmToCommandLine(vm)
 
