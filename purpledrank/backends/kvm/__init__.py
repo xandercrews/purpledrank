@@ -152,7 +152,7 @@ class KVMControlInterface(object):
 
         # cpu mem
         cmdlines += [ "-smp", "%d" % vm['vcpu'] ]
-        cmdlines += [ "-memory", "%d" % vm['memory'] ]
+        cmdlines += [ "-m", "%d" % vm['memory'] ]
 
         # nic stuff
         if 'nics' in vm:
