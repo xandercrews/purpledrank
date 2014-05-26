@@ -133,6 +133,10 @@ class KVMControlInterface(object):
         if p.returncode != 0:
             raise Exception('failed to start vm: %s' % err)
 
+        # save pidfile?
+
+        return p.pid
+
     def stop(self, vmname):
         pass
 
