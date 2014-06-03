@@ -72,4 +72,6 @@ xander-xerbuyi:
 
 beastmode1-rsaj8th:
   host: beastmode.mgmt.aperobot.net
+  port: 9292
+  sourceid: beastmode
   << : *kvm

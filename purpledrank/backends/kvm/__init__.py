@@ -2,9 +2,8 @@ __author__ = 'achmed'
 
 from contextlib import closing
 
-from .. import backendutil
-
 import os
+import stat
 
 import json
 import glob
@@ -12,6 +11,12 @@ import glob
 import collections
 
 import subprocess
+
+from ...thirdparty import qmp
+
+from contextlib import contextmanager
+
+import tempfile
 
 import logging
 logger = logging.getLogger(__name__)
@@ -23,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 # can update inventory state on events with inotify (but it doesn't work on NFS)
 
+
 class KVMInventoryInterface(object):
     VM_FILE_SUFFIX = '.vm.json'
 
@@ -32,19 +38,19 @@ class KVMInventoryInterface(object):
             raise Exception('invalid inventory directory')
 
     # check for existence of vm by name
-    def isVm(self, name):
-        vmpath = self._resolveVmPath(name)
+    def is_vm(self, name):
+        vmpath = self._resolve_vm_path(name)
         if not os.path.isfile(vmpath):
             return False
 
         with open(vmpath, 'r') as fd:
             d = json.load(fd)
-            self._validateVm(d, name)
+            self._validate_vm(d, name)
 
         return True
 
     # list vms
-    def listVms(self):
+    def list_vms(self):
         vms = []
 
         for filename in glob.glob(os.path.join(self.inventorydir, '*%s' % self.VM_FILE_SUFFIX)):
@@ -52,35 +58,35 @@ class KVMInventoryInterface(object):
 
             with open(filename, 'r') as fd:
                 d = json.load(fd)
-                self._validateVm(d, vmname)
+                self._validate_vm(d, vmname)
 
             vms.append(vmname)
 
         return vms
 
-    def getVm(self, name):
-        vmpath = self._resolveVmPath(name)
+    def get_vm(self, name):
+        vmpath = self._resolve_vm_path(name)
 
         with open(vmpath, 'r') as fd:
             d = json.load(fd)
-            self._validateVm(d)
+            self._validate_vm(d)
 
         return d
 
     # create a new vm based on a descriptor
-    def createVm(self, vm):
+    def create_vm(self, vm):
         if isinstance(vm, collections.Mapping):
            pass
         elif isinstance(vm, (basestring, unicode)):
             vm = json.loads(vm)
 
-        self._validateVm(vm)
+        self._validate_vm(vm)
 
         vmname = vm['name']
 
         assert len(vmname) > 0
 
-        vmpath = self._resolveVmPath(vmname)
+        vmpath = self._resolve_vm_path(vmname)
 
         fd = os.open(vmpath, os.O_CREAT|os.O_WRONLY|os.O_EXCL)
         with closing(os.fdopen(fd, 'w')) as f:
@@ -88,7 +94,7 @@ class KVMInventoryInterface(object):
 
         return vmname
 
-    def _validateVm(self, vm, name=None):
+    def _validate_vm(self, vm, name=None):
         try:
             if name is not None:
                 assert vm['name'] == name, 'name in file does not match expected name'
@@ -102,58 +108,214 @@ class KVMInventoryInterface(object):
             assert 1 <= vm['memory'] <= 512 * 1024
 
             assert 'display' in vm, 'display field missing'
-            assert 'vnc' in vm['display'] or 'spice' in vm['display'], 'at least one of vnc or spice must be specified'
+
+            if 'vnc' in vm['display']:
+                vnc = vm['display']['vnc']
+                assert 'port' in vnc, 'vnc port missing'
+            else:
+                assert 'spice' in vm['display'], 'at least one of vnc or spice must be specified'
+                spice = vm['display']['spice']
+                assert 'port' in spice
+
+            assert 'qmp-port' in vm, 'qmp field missing'
+            assert isinstance(vm['qmp-port'], int), 'qmp port must be an integer'
+            assert 1024 < vm['qmp-port'] <= 65535
+
+            if 'nics' in vm:
+                for nic in vm['nics']:
+                    assert 'type' in nic and nic['type'] in ('vhost', 'tap')
+                    assert 'macaddr' in nic
+                    assert ( 'trunk' in nic and nic['trunk'] ) or 'access-vlan' in nic and isinstance(nic['access-vlan'], int)
+                    assert 'model' in nic and nic['model'] in ('e1000', 'virtio')
+
+            if 'disks' in vm:
+                pass
+
         except Exception, e:
             raise Exception('invalid vm: %s' % e.message)
 
         return True
 
-    def _resolveVmPath(self, name):
+    def _resolve_vm_path(self, name):
         return os.path.join(self.inventorydir, '%s%s' % (name, self.VM_FILE_SUFFIX,))
 
 
-class KVMControlInterface(object):
+class KVMCommandInterface(object):
     KVM_COMMAND_LINE = "/usr/bin/kvm"
 
     def __init__(self, inventory, piddir='/var/run/kvm'):
         self.inventory = inventory
+        self.piddir = piddir
 
-    # start or stop a kvm virtual machine by name
+    # start or shutdown a kvm virtual machine by name
     def start(self, vmname):
-        vm = self.inventory.getVm(vmname)
+        # TODO prevent race where a vm could be started in between checks-
+        # qemu provides a pidfile option but does not check it and start
+        # the VM atomically
+        if self._vm_is_running(vmname):
+            raise Exception('vm is running')
+
+        vm = self.inventory.get_vm(vmname)
 
         if vm is None:
             raise Exception('vm \'%s\' does not exist' % vmname)
 
-        cmdlines = self._vmToCommandLine(vm)
+        cmdline = self._vm_to_cmdline(vm)
 
-        p = subprocess.Popen([ self.KVM_COMMAND_LINE ] + cmdlines, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=None)
-        out,err = p.communicate()
+        cmdline = [self.KVM_COMMAND_LINE] + cmdline
+
+        logger.debug('executing kvm command: %s' % ' '.join(cmdline))
+        print ' '.join(cmdline)
+
+        p = subprocess.Popen(cmdline, stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
 
         if p.returncode != 0:
-            raise Exception('failed to start vm: %s' % err)
+            raise Exception('could not start vm: %s' % err)
 
-        # save pidfile?
+        # verify vm is running via qmp interface
+        with self._get_mon(vm) as mon:
+            resp = mon.command('query-status')
+            logger.debug('monitor response: %s' % resp)
 
-        return p.pid
+    def shutdown(self, vmname):
+        vm = self.inventory.get_vm(vmname)
 
-    def stop(self, vmname):
-        pass
+        with self._get_mon(vm) as mon:
+            resp = mon.command('system_powerdown')
+            logger.debug('monitor response: %s' % resp)
 
-    def _vmToCommandLine(self, vm):
-        cmdlines = []
+    def kill(self, vmname):
+        vm = self.inventory.get_vm(vmname)
+
+        with self._get_mon(vm) as mon:
+            resp = mon.command('quit')
+            logger.debug('monitor response: %s' % resp)
+
+    def zap(self, vmname):
+        try:
+            os.unlink(self._vm_pidfile(vmname))
+        except IOError:
+            pass
+
+    def mon_command(self, vmname, command, *args):
+        vm = self.inventory.get_vm(vmname)
+
+        with self._get_mon(vm) as mon:
+            resp = mon.command(command, *args)
+            logger.debug('monitor response: %s' % resp)
+
+        return resp
+
+    def vm_info(self, vmname):
+        vm = self.inventory.get_vm(vmname)
+
+        running = self._vm_is_running(vmname)
+
+        if running:
+            with self._get_mon(vm) as mon:
+                blockdev = mon.command('query-block')
+                blockstats = mon.command('query-blockstats')
+                status = mon.command('query-status')
+                vnc = mon.command('query-vnc')
+                spice = mon.command('query-spice')
+        else:
+            blockdev = None
+            blockstats = None
+            status = None
+            vnc = None
+            spice = None
+
+        return vm, running, dict(blockdev=blockdev, blockstats=blockstats, status=status, vnc=vnc, spice=spice)
+
+    @contextmanager
+    def _get_mon(self, vm):
+        mon = qmp.QEMUMonitorProtocol(('127.0.0.1', vm['qmp-port'],))
+        mon.connect()
+        yield mon
+        mon.close()
+
+    def _vm_is_running(self, vmname):
+        pidfile = self._vm_pidfile(vmname)
+
+        try:
+            with open(pidfile, 'r') as fh:
+                vmpid = int(fh.read())
+            if os.path.exists('/proc/%d/' % vmpid):
+                return True
+        except IOError:
+            pass
+        except ValueError:
+            pass
+
+        return False
+
+    def _vm_pidfile(self, vmname):
+        return os.path.join(self.piddir, '%s.pid' % vmname)
+
+    def _vm_to_cmdline(self, vm):
+        cmdline = []
 
         # vm name
-        cmdlines += [ "-name", "%s" % vm['name'] ]
+        cmdline += [ "-name", "%s" % vm['name'] ]
 
         # cpu mem
-        cmdlines += [ "-smp", "%d" % vm['vcpu'] ]
-        cmdlines += [ "-m", "%d" % vm['memory'] ]
+        cmdline += [ "-smp", "%d" % vm['vcpu'] ]
+        cmdline += [ "-m", "%d" % vm['memory'] ]
 
+        nicdev = 1
         # nic stuff
         if 'nics' in vm:
             for nic in vm['nics']:
-                pass
+                assert 'type' in nic and nic['type'] in ('vhost', 'tap')
+                assert 'macaddr' in nic
+                assert ( 'trunk' in nic and nic['trunk'] ) or 'access-vlan' in nic and isinstance(nic['access-vlan'], int)
+                assert 'model' in nic and nic['model'] in ('e1000', 'virtio')
+
+                upscript = self._temp_script()
+                downscript = self._temp_script()
+
+                if 'trunk' in nic and nic['trunk']:
+                    # why did i sleep in here?
+
+                    # TOOD remove hardcoded bridge names
+                    print >>upscript[0], \
+"""#!/bin/sh
+/usr/bin/ovs-vsctl del-port vmbr0 $1
+/sbin/ifconfig $1 0 up
+/usr/bin/ovs-vsctl add-port vmbr0 $1
+sleep 5
+/sbin/ifconfig $1 0 up
+"""
+                else:
+                    assert 'access-vlan' in nic
+                    print >>upscript[0], \
+"""#!/bin/sh
+/usr/bin/ovs-vsctl del-port vmbr0 $1
+/sbin/ifconfig $1 0 up
+/usr/bin/ovs-vsctl add-port vmbr0 $1 tag=%d
+""" % nic['access-vlan']
+
+                print >>downscript[0], """
+                #!/bin/sh
+                /sbin/ifconfig $1 0 down
+                /usr/bin/ovs-vsctl del-port vmbr0 $1
+                """
+
+                upscript[0].close()
+                downscript[0].close()
+
+                if nic['type'] == 'vhost':
+                    nicdevname = '%s.%d' % (vm['name'], nicdev)
+                    cmdline += [ '-net', 'nic,macaddr=%s,model=%s,model=%s,netdev=%s' % (nic['macaddr'], nic['model'], nic['model'], nicdevname) ]
+                    cmdline += [ '-netdev', 'tap,ifname=%s,id=%s,vhost=on,script=%s,downscript=%s,' % (nicdevname, nicdevname, upscript[1], downscript[1])]
+
+                else:
+                    assert nic['type'] == 'tap'
+                    cmdline += ['-net', 'nic,macaddr=%s,model=%s,vlan=%d' % (nic['macaddr'], nic['model'], nicdev)]
+                    cmdline += [ '-net', 'tap,vlan=%d,script=%s,downscript=%s' % (nicdev, upscript[1], downscript[1])]
+
+                nicdev += 1
 
         # disk stuff
         if 'disks' in vm:
@@ -166,17 +328,26 @@ class KVMControlInterface(object):
             spiceline = 'port=%d' % spice['port']
             if 'disable-ticketing' in spice and spice['disable-ticketing']:
                 spiceline += ',disable-ticketing'
-            cmdlines += [ '-spice', spiceline ]
-            cmdlines += [ '-vga', 'qxl' ]
+            cmdline += [ '-spice', spiceline ]
+            cmdline += [ '-vga', 'qxl' ]
 
         # vnc display
         if 'vnc' in vm['display']:
             vnc = vm['display']['vnc']
             assert 5900 <= vnc['port'] <= 65535
-            cmdlines += [ '-vnc', ':%d' % (vnc['port'] - 5900) ]
+            cmdline += [ '-vnc', ':%d' % (vnc['port'] - 5900) ]
 
         # standard stuff
-        cmdlines += [ "-daemonize" ]
-        cmdlines += [ "-usbdevice", "tablet" ]
+        cmdline += [ "-usbdevice", "tablet" ]
 
-        return cmdlines
+        cmdline += [ '-qmp', "tcp:127.0.0.1:%d,server,nowait" % vm['qmp-port'] ]
+        cmdline += [ '-daemonize' ]
+        cmdline += [ '-pidfile',  self._vm_pidfile(vm['name']) ]
+
+        return cmdline
+
+    def _temp_script(self):
+        (fd, filename) = tempfile.mkstemp(text=True)
+        fh = os.fdopen(fd, 'w')
+        os.chmod(filename, stat.S_IXUSR | os.stat(filename).st_mode)
+        return (fh, filename)
