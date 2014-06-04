@@ -283,6 +283,8 @@ class KVMCommandInterface(object):
                     diskopts += [ 'cache=%s' % disk['cache'] ]
 
                 diskopts += [ 'aio=native' ]
+                diskopts += [ 'werror=stop' ]
+                diskopts += [ 'rerror=stop' ]
 
                 cmdline += [ '-drive', ','.join(diskopts) ]
 
