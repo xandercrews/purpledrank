@@ -359,6 +359,7 @@ sleep 5
 
         # standard stuff
         cmdline += [ "-usbdevice", "tablet" ]
+        cmdline += [ "-soundhw", "hda" ]
 
         cmdline += [ '-qmp', "tcp:127.0.0.1:%d,server,nowait" % vm['qmp-port'] ]
         cmdline += [ '-daemonize' ]
