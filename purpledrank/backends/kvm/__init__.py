@@ -119,17 +119,20 @@ class KVMInventoryInterface(object):
 
             assert 'qmp-port' in vm, 'qmp field missing'
             assert isinstance(vm['qmp-port'], int), 'qmp port must be an integer'
-            assert 1024 < vm['qmp-port'] <= 65535
+            assert 1024 < vm['qmp-port'] <= 65535, 'invalid qmp port'
+
+            if 'disks' in vm:
+                for disk in vm['disks']:
+                    assert 'file' in disk or 'lun' in disk, 'file or lun option required in disk'
+                    assert 'interface' not in disk or disk['interface'] in ('virtio', 'ide', 'scsi', 'floppy', 'sd', 'mtd', 'pflash',), 'invalid disk interface type'
+                    assert 'cache' not in disk or disk['cache'] in ('none', 'writeback', 'writethrough',), 'invalid cache option in disk'
 
             if 'nics' in vm:
                 for nic in vm['nics']:
-                    assert 'type' in nic and nic['type'] in ('vhost', 'tap')
-                    assert 'macaddr' in nic
-                    assert ( 'trunk' in nic and nic['trunk'] ) or 'access-vlan' in nic and isinstance(nic['access-vlan'], int)
-                    assert 'model' in nic and nic['model'] in ('e1000', 'virtio')
-
-            if 'disks' in vm:
-                pass
+                    assert 'type' in nic and nic['type'] in ('vhost', 'tap',), 'invalid nic type'
+                    assert 'macaddr' in nic, 'missing macaddr'
+                    assert ( 'trunk' in nic and nic['trunk'] ) or 'access-vlan' in nic and isinstance(nic['access-vlan'], int), 'need one of trunk or access vlan'
+                    assert 'model' in nic and nic['model'] in ('e1000', 'virtio',), 'missing nic model'
 
         except Exception, e:
             raise Exception('invalid vm: %s' % e.message)
@@ -263,6 +266,26 @@ class KVMCommandInterface(object):
         cmdline += [ "-smp", "%d" % vm['vcpu'] ]
         cmdline += [ "-m", "%d" % vm['memory'] ]
 
+        # disk stuff
+        if 'disks' in vm:
+            for disk in vm['disks']:
+                diskopts = []
+
+                if 'file' in disk:
+                    diskopts += [ 'file=%s' % disk['file'] ]
+                elif 'lun' in disk:
+                    diskopts += [ 'file=/dev/iscsi/%s' % disk['lun'] ]
+
+                if 'interface' in disk:
+                    diskopts += [ 'if=%s' % disk['interface'] ]
+
+                if 'cache' in disk:
+                    diskopts += [ 'cache=%s' % disk['cache'] ]
+
+                diskopts += [ 'aio=native' ]
+
+                cmdline += [ '-drive', ','.join(diskopts) ]
+
         nicdev = 1
         # nic stuff
         if 'nics' in vm:
@@ -316,11 +339,6 @@ sleep 5
                     cmdline += [ '-net', 'tap,vlan=%d,script=%s,downscript=%s' % (nicdev, upscript[1], downscript[1])]
 
                 nicdev += 1
-
-        # disk stuff
-        if 'disks' in vm:
-            for disk in vm['disks']:
-                pass
 
         # spice display
         if 'spice' in vm['display']:
