@@ -69,3 +69,9 @@ sync-service: &sync
 xander-xerbuyi:
   host: xander.esc.aperobot.net
   << : *collector
+
+beastmode1-rsaj8th:
+  host: beastmode.mgmt.aperobot.net
+  port: 9292
+  sourceid: beastmode
+  << : *kvm

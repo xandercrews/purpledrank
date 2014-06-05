@@ -1,0 +1,17 @@
+* kvm data collection
+* kvm inventory scheme, process monitoring
+    **json vm descriptions?
+* solve tgt -> hg problem when hg is all
+    **conditional logic in queries?
+    **multiple queries that have the same relational label
+* openvswitch data collection
+* switch data collection
+* routeros data collection
+    **routes
+    **nat mappings
+* netstat data collection
+* ups data collection
+* wifi AP data collection
+* allow multiple inheritance in the magicservice
+    **can yaml merge lists?
+* work out streaming service details

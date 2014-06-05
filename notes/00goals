@@ -58,7 +58,23 @@ search
 durable/persistent bits
 ----
 a central configuration database
-kvm inventory
+====
+(as of now, the yaml scheme exposed through a zeromq service w/ discovery and magic services)
+
+vm inventory
+====
+json descriptor files
+{
+    "name": "",
+    "cpu": 4,
+    "memory": 8192,
+    "disks": [
+
+    ],
+    "nics": [
+
+    ]
+}
 
 discussions
 ----
