@@ -204,8 +204,10 @@ class KVMCommandInterface(object):
     def mon_command(self, vmname, command, *args):
         vm = self.inventory.get_vm(vmname)
 
+        kwargs =dict(map(lambda a: a.split('=', 1), args))
+
         with self._get_mon(vm) as mon:
-            resp = mon.command(command, *args)
+            resp = mon.command(command, **kwargs)
             logger.debug('monitor response: %s' % resp)
 
         return resp
@@ -230,6 +232,13 @@ class KVMCommandInterface(object):
             spice = None
 
         return vm, running, dict(blockdev=blockdev, blockstats=blockstats, status=status, vnc=vnc, spice=spice)
+
+    def set_spice_ticket(self, vmname, ticket, expiry):
+        vm = self.inventory.get_vm(vmname)
+
+        with self._get_mon(vm) as mon:
+            mon.command('set_password', protocol='spice', password=ticket)
+            mon.command('expire_password', protocol='spice', time=expiry)
 
     @contextmanager
     def _get_mon(self, vm):

@@ -6,6 +6,8 @@ from ...timeutil import utctimestamp
 from ...envelopeutil import make_envelope
 
 import functools
+import uuid
+import base64
 
 import gevent.pool
 
@@ -69,6 +71,20 @@ class KVMService(BaseService):
         """
         self.kc.kill(vmname)
         return True
+
+    def generate_spice_ticket(self, vmname, expiry='+300'):
+        """
+        assigns and returns a temporary spice access ticket at random
+        """
+        ticket = base64.urlsafe_b64encode(uuid.uuid4().bytes)
+        self.kc.set_spice_ticket(vmname, ticket, expiry)
+        return ticket
+
+    def monitor_command(self, vmname, command, *args):
+        """
+        issues an arbitrary monitor command to vm
+        """
+        return self.kc.mon_command(vmname, command, *args)
 
     def _get_vm(self, timestamp, vmname):
         # fetch vm information from backend services and combine results
