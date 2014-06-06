@@ -33,6 +33,7 @@ def deploy(gittag=None, gitbranch='master', confighost='127.0.0.1', configport='
 
     # checkout newest version
     with cd(CODE_DIR):
+        run('git fetch')
         # TODO use tags and branches at the same time
         if gittag:
             run('git checkout tags/%s' % gittag)
