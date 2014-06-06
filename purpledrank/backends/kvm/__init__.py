@@ -126,6 +126,7 @@ class KVMInventoryInterface(object):
                     assert 'file' in disk or 'lun' in disk, 'file or lun option required in disk'
                     assert 'interface' not in disk or disk['interface'] in ('virtio', 'ide', 'scsi', 'floppy', 'sd', 'mtd', 'pflash',), 'invalid disk interface type'
                     assert 'cache' not in disk or disk['cache'] in ('none', 'writeback', 'writethrough',), 'invalid cache option in disk'
+                    assert 'format' not in disk or disk['format'] in ('qcow2', 'host_device', 'raw', 'qcow', 'cow', 'vdi', 'vmdk', 'vpc', 'cloop')
 
             if 'nics' in vm:
                 for nic in vm['nics']:
@@ -290,6 +291,9 @@ class KVMCommandInterface(object):
 
                 if 'cache' in disk:
                     diskopts += [ 'cache=%s' % disk['cache'] ]
+
+                if 'format' in disk:
+                    diskopts += [ 'format=%s' % disk['format'] ]
 
                 diskopts += [ 'aio=native' ]
                 diskopts += [ 'werror=stop' ]
