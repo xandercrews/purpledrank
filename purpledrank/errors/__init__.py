@@ -8,3 +8,6 @@ class ServiceNotConfiguredException(Exception):
 
 class NotYetImplementedException(Exception):
     pass
+
+class VMValidationError(Exception):
+    pass
