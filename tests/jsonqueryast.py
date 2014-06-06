@@ -859,6 +859,12 @@ def strip_zvol_parentdir(datafile):
         return datafile[len(PARENTDIR):]
     return datafile
 
+def linuxlun_to_zlun(linuxlun):
+    if not isinstance(linuxlun, (basestring, unicode)):
+        return linuxlun
+
+    return str(linuxlun[1:]).upper()
+
 def main():
     # SELECT
     # flatten_disks(x) from zpool:*,
@@ -1077,16 +1083,39 @@ def main():
             Free('x'), 'hg_of', Free('y')
         )
 
+    remotelun_of = \
+        Select(
+            Free('x').From('stmf_targets\0*\0stmf_luns\0*'),
+            Free('y').From('kvm_vms\0*\0kvm_vm\0*'),
+        ).Join_On(
+            Equals(
+                Json_path(Free('x'), 'id'),
+                Call_table_method('linuxlun_to_zlun', Json_path(Free('y'), '_.config.disks[*].lun')),
+            ),
+            Equals(
+                Json_path(Free('x'), 'type'),
+                Static('stmf_luns'),
+            ),
+            Equals(
+                Json_path(Free('y'), 'type'),
+                Static('kvm_vm'),
+            )
+        ).Relate(
+                Free('x'), 'remotelun_of', Free('y')
+        )
+
     rqe = RedisQueryEngine('localhost', 6379)
     rqe.call_table['zpool_from_zvol_id'] = zpool_from_zvol_id
     rqe.call_table['strip_disk_slice'] = strip_disk_slice
     rqe.call_table['strip_zvol_parentdir'] =  strip_zvol_parentdir
+    rqe.call_table['linuxlun_to_zlun'] = linuxlun_to_zlun
     rqe.addQuery(disk_query)
     rqe.addQuery(zvol_query)
     rqe.addQuery(zpool_prop_query)
     rqe.addQuery(stmf_lun_vol)
     rqe.addQuery(target_tpg)
     rqe.addQuery(lun_hg)
+    rqe.addQuery(remotelun_of)
     rqe.updateSubscriptions()
     rqe.initialQueries()
     rqe.subscriptionLoop()

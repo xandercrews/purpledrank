@@ -33,7 +33,7 @@ class KVMService(BaseService):
         # TODO prevent one bad VM from tainting all results
         timestamp = utctimestamp()
 
-        vm_getter =functools.partial(self._get_vm, timestamp)
+        vm_getter = functools.partial(self._get_vm, timestamp)
 
         pool = gevent.pool.Pool(20)
 
@@ -50,6 +50,12 @@ class KVMService(BaseService):
         returns a list of vms in inventory
         """
         return self.ki.list_vms()
+
+    def list_invalid_vmfiles(self):
+        """
+        returns a list of vm files present but invalid
+        """
+        return self.ki.list_invalid_vmfiles()
 
     def start_vm(self, vmname):
         """

@@ -13,18 +13,28 @@ zfs-role: &zfs
 kvm-role: &kvm
   service: purpledrank.services.kvm.KVMService
 
-test-service: &test-service
-  service: purpledrank.services.test.TestService
-
 redis-config: &redis-config
   host: 127.0.0.1
   port: 6379
+
+test-service: &test-service
+  service: purpledrank.services.test.TestService
+
+sync-service: &sync
+  redis:
+    << : *redis-config
 
 twaughthammer-sq46yxz: &twaughthammer
   host: twaughthammer.work.aperobot.net
   port: 9292
   sourceid: twaughthammer
   << : *zfs
+
+beastmode1-rsaj8th: &beastmode
+  host: beastmode1.mgmt.aperobot.net
+  port: 9292
+  sourceid: beastmode
+  << : *kvm
 
 collector-service: &collector
   sources:
@@ -58,11 +68,12 @@ collector-service: &collector
       method   : get_cfgadm_disks
       interval : 30
       args     : []
+    - <<       : *beastmode
+      name     : kvm_vms
+      method   : get_all_vms
+      interval : 30
+      args     : []
   service: purpledrank.services.rediscollector.RedisCollectorService
-  redis:
-    << : *redis-config
-
-sync-service: &sync
   redis:
     << : *redis-config
 
@@ -70,8 +81,3 @@ xander-xerbuyi:
   host: xander.esc.aperobot.net
   << : *collector
 
-beastmode1-rsaj8th:
-  host: beastmode.mgmt.aperobot.net
-  port: 9292
-  sourceid: beastmode
-  << : *kvm

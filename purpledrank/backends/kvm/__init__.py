@@ -14,6 +14,8 @@ import subprocess
 
 from ...thirdparty import qmp
 
+from ...errors import VMValidationError
+
 from contextlib import contextmanager
 
 import tempfile
@@ -53,16 +55,32 @@ class KVMInventoryInterface(object):
     def list_vms(self):
         vms = []
 
-        for filename in glob.glob(os.path.join(self.inventorydir, '*%s' % self.VM_FILE_SUFFIX)):
-            vmname = os.path.basename(filename).split(self.VM_FILE_SUFFIX)[0]
+        for filename, vmname in self._iter_vm_files():
+            try:
+                with open(filename, 'r') as fd:
+                    d = json.load(fd)
+                    self._validate_vm(d, vmname)
 
-            with open(filename, 'r') as fd:
-                d = json.load(fd)
-                self._validate_vm(d, vmname)
+                    vms.append(vmname)
 
-            vms.append(vmname)
+            except VMValidationError, e:
+                logger.warn('invalid vm (%s) configuration: %s' % (vmname, e.message))
 
         return vms
+
+    def list_invalid_vmfiles(self):
+        invalid_vms = []
+
+        for filename, vmname in self._iter_vm_files():
+            try:
+                with open(filename, 'r') as fd:
+                    d = json.load(fd)
+                    self._validate_vm(d, vmname)
+
+            except VMValidationError, e:
+                invalid_vms.append((vmname, e.message,))
+
+        return invalid_vms
 
     def get_vm(self, name):
         vmpath = self._resolve_vm_path(name)
@@ -126,6 +144,7 @@ class KVMInventoryInterface(object):
                     assert 'file' in disk or 'lun' in disk, 'file or lun option required in disk'
                     assert 'interface' not in disk or disk['interface'] in ('virtio', 'ide', 'scsi', 'floppy', 'sd', 'mtd', 'pflash',), 'invalid disk interface type'
                     assert 'cache' not in disk or disk['cache'] in ('none', 'writeback', 'writethrough',), 'invalid cache option in disk'
+                    assert 'format' not in disk or disk['format'] in ('qcow2', 'host_device', 'raw', 'qcow', 'cow', 'vdi', 'vmdk', 'vpc', 'cloop')
 
             if 'nics' in vm:
                 for nic in vm['nics']:
@@ -134,13 +153,18 @@ class KVMInventoryInterface(object):
                     assert ( 'trunk' in nic and nic['trunk'] ) or 'access-vlan' in nic and isinstance(nic['access-vlan'], int), 'need one of trunk or access vlan'
                     assert 'model' in nic and nic['model'] in ('e1000', 'virtio',), 'missing nic model'
 
-        except Exception, e:
-            raise Exception('invalid vm: %s' % e.message)
+        except AssertionError, e:
+            raise VMValidationError('vm: %s' % e.message)
 
         return True
 
     def _resolve_vm_path(self, name):
         return os.path.join(self.inventorydir, '%s%s' % (name, self.VM_FILE_SUFFIX,))
+
+    def _iter_vm_files(self):
+        for filename in glob.glob(os.path.join(self.inventorydir, '*%s' % self.VM_FILE_SUFFIX)):
+            vmname = os.path.basename(filename).split(self.VM_FILE_SUFFIX)[0]
+            yield filename, vmname
 
 
 class KVMCommandInterface(object):
@@ -290,6 +314,9 @@ class KVMCommandInterface(object):
 
                 if 'cache' in disk:
                     diskopts += [ 'cache=%s' % disk['cache'] ]
+
+                if 'format' in disk:
+                    diskopts += [ 'format=%s' % disk['format'] ]
 
                 diskopts += [ 'aio=native' ]
                 diskopts += [ 'werror=stop' ]
