@@ -14,7 +14,7 @@ kvm-role: &kvm
   service: purpledrank.services.kvm.KVMService
 
 redis-config: &redis-config
-  host: 127.0.0.1
+  host: tools.svcs.aperobot.net
   port: 6379
 
 test-service: &test-service
@@ -77,7 +77,6 @@ collector-service: &collector
   redis:
     << : *redis-config
 
-xander-xerbuyi:
-  host: xander.esc.aperobot.net
+tools-HQ0c2rv:
+  host: tools.svcs.aperobot.net
   << : *collector
-
