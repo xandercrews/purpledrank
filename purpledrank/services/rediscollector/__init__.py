@@ -26,8 +26,6 @@ import functools
 # import msgpack as endecoder
 import json as endecoder
 
-# sys.path.append('/home/achmed/venv/purpledrank/lib/python2.7/site-packages/pycharm-debug.egg')
-# import pydevd
 
 class RedisCollectionThread(threading.Thread):
     def __init__(self, sourcename, host, port, interval, method, args, rconn):
@@ -66,7 +64,7 @@ class RedisCollectionThread(threading.Thread):
             logger.debug('worker %s collecting data' % self.sourcename)
             data = self.collection_method()
 
-            logger.debug('collected objects from agent %s method %s' % (self.agentid, self.method))
+            logger.debug('collected %d objects from agent %s method %s' % (len(data), self.agentid, self.method))
 
             process_keys = []
 
