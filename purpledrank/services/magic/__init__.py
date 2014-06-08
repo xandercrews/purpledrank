@@ -16,9 +16,10 @@ from ...errors import ServiceNotConfiguredException
 import zerorpc
 import zerorpc.exceptions
 
+import logging.config
+
 import logging
 logger = logging.getLogger(__name__)
-import logging.config
 
 def reset_logging():
     global logger
@@ -73,11 +74,11 @@ class RemoteServiceConfigMetaclass(type):
 
     @staticmethod
     def updateLoggingConfig():
-        global logger
-        print 'getting log config'
         config_params = RemoteServiceConfigMetaclass.get_config_connect_params()
         assert len(config_params) == 2, 'there should be a host and port in connect params for config server'
-        c = zerorpc.Client('tcp://%s:%s' % config_params)
+        conn_string = 'tcp://%s:%s' % config_params
+        print 'getting log config from %s' % conn_string
+        c = zerorpc.Client(conn_string)
         try:
             l = c.get_logging_config()
             # reset_logging()    # unnecessary

@@ -7,6 +7,8 @@ install venv
 
 (run fab deploy to create venv)
 
-install supervisor zerorpc and all other deps in the venv
+pip install in the venv:
+supervisor zerorpc pyaml pytz python-dateutil ipython redis jsonpatch jsonpath-rw
+(and all other deps)
 
-
+setup.py develop the purpledrank source (even an empty setup.py will create the link)

@@ -26,6 +26,9 @@ import functools
 # import msgpack as endecoder
 import json as endecoder
 
+# sys.path.append('/home/achmed/venv/purpledrank/lib/python2.7/site-packages/pycharm-debug.egg')
+# import pydevd
+
 class RedisCollectionThread(threading.Thread):
     def __init__(self, sourcename, host, port, interval, method, args, rconn):
         '''
@@ -38,9 +41,12 @@ class RedisCollectionThread(threading.Thread):
         self.method = method
         self.interval = interval
         try:
-            self.client = zerorpc.Client('tcp://%s:%d' % (self.host, self.port))
+            hoststr = 'tcp://%s:%d' % (self.host, self.port)
+            logger.info('worker %s attempting zrpc connection to %s' % (self.sourcename, hoststr,))
+            self.client = zerorpc.Client(hoststr)
             self.agentid = self.client.agent_id()
         except Exception, e:
+            logger.exception('couldn\'t create client connection to source: %s')
             raise Exception('couldn\'t create client connection to source: %s' % str(e)), None, sys.exc_info()[2]
         self.collection_method = functools.partial(self.client.__getattr__(self.method), *args)
         self.rconn = rconn
@@ -52,8 +58,12 @@ class RedisCollectionThread(threading.Thread):
         self.stopevent = threading.Event()
 
         def periodic_cb():
+            logger.debug('worker %s waking' % self.sourcename)
+
+            logger.debug('worker %s scanning previous keys' % self.sourcename)
             previous_keys = set(scan_iter(self.rconn, '%s\0*' % self.redis_key_prefix))
 
+            logger.debug('worker %s collecting data' % self.sourcename)
             data = self.collection_method()
 
             logger.debug('collected objects from agent %s method %s' % (self.agentid, self.method))
@@ -177,6 +187,7 @@ class RedisCollectionThread(threading.Thread):
 
 class RedisCollectorService(BaseService):
     def __init__(self):
+        # pydevd.settrace('xander.esc.aperobot.net', port=4312, stdoutToServer=True, stderrToServer=True)
         BaseService.__init__(self)
         self._redis_conn()
         self._start_workers()
@@ -184,6 +195,7 @@ class RedisCollectorService(BaseService):
     def _redis_conn(self):
         host = self.config['redis']['host']
         port = int(self.config['redis']['port'])
+        logger.info('making redis connection %s:%d' % (host, port,))
         self.redis_conn = redis.StrictRedis(host=host, port=port, db=0)
 
     def _start_workers(self):
@@ -194,11 +206,13 @@ class RedisCollectorService(BaseService):
             method = source['method']
             interval = source.get('interval', None)
             args = source['args']
+            logger.info('creating worker %s' % name)
             t = RedisCollectionThread(name, host, port, interval, method, args, self.redis_conn)
             self.workers.append(t)
 
         for t in self.workers:
             # t.run()     # for debugging =/
+            logger.info('starting worker %s' % str(t))
             t.start()
 
     def worker_stuff(self):

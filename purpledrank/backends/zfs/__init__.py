@@ -14,8 +14,8 @@ else:
     ZPOOL_CMD = '/usr/bin/zpool'
     ZFS_CMD = '/usr/sbin/zfs'
 
-from ...log import init_logger
-init_logger()
+# from ...log import init_logger
+# init_logger()
 
 import logging
 logger = logging.getLogger(__name__)

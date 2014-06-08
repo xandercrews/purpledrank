@@ -24,13 +24,6 @@ sync-service: &sync
   redis:
     << : *redis-config
 
-test-service: &test-service
-  service: purpledrank.services.test.TestService
-
-sync-service: &sync
-  redis:
-    << : *redis-config
-
 twaughthammer-sq46yxz: &twaughthammer
   host: twaughthammer.work.aperobot.net
   port: 9292
