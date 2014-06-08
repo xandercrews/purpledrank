@@ -1,0 +1,12 @@
+until i write a setup.py or stabilize the method of deployment, it's necessary to do the following to use fab deploy:
+
+remove the secure path and env_reset options in sudoers
+
+install python
+install venv
+
+(run fab deploy to create venv)
+
+install supervisor zerorpc and all other deps in the venv
+
+
