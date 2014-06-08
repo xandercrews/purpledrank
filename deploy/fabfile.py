@@ -11,7 +11,7 @@ CODE_DIR = 'purpledrank/'
 VENV_DIR = 'venv/purpledrank/'
 # PID_FILE = "%s/conf/supervisord.pid" % CODE_DIR.rstrip('/')
 PID_FILE = '/tmp/supervisord.pid'
-SUPERVISOR_CONF = "%s/conf/supervisor.conf" % CODE_DIR.rstrip('/')
+SUPERVISOR_CONF = "%s/conf/supervisor/magicservice.conf" % CODE_DIR.rstrip('/')
 
 env.use_ssh_config = True
 env.forward_agent = True
