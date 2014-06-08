@@ -600,6 +600,7 @@ class RedisQueryEngine(object):
             v = self.rconn.get(key)
             v = endecoder.loads(v)
 
+            logger.debug('getting hasher for %s' % key)
             hasher = query.linkNodeHashFunc()
             linkhashes = dict(hasher(key, v))
 
