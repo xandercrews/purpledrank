@@ -540,6 +540,7 @@ class RedisQueryEngine(object):
 
     def initialQueries(self):
         for query in self.queries:
+            logger.debug('running initial query %s' % str(query))
             if not query.initialized:
                 self._runQueryAll(query)
                 query.initialized = True
@@ -804,6 +805,8 @@ class RedisQueryEngine(object):
             for item in self.pubsub.listen():
                 if item['type'].endswith('subscribe'):
                     continue
+
+                logger.debug('servicing subscription update %s' % str(item))
 
                 pattern, data = item['pattern'], item['data']
                 v = endecoder.loads(data)
