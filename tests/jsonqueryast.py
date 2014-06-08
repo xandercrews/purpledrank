@@ -70,7 +70,7 @@ import operator
 import re
 
 from purpledrank.purpleutil import dictequal
-from purpledrank.redisutil import scan_iter, add_prefix
+from purpledrank.redisutil import add_prefix
 
 # import msgpack as endecoder
 import json as endecoder
@@ -552,7 +552,7 @@ class RedisQueryEngine(object):
 
     def _markLinkKeys(self, keyprefix):
         # find link keys
-        linkkeys = {k: 1 for k in scan_iter(self.rconn, keyprefix)}
+        linkkeys = {k: 1 for k in self.rconn.scan_iter(keyprefix)}
 
         # find subkeys
         for key in linkkeys:
@@ -597,7 +597,9 @@ class RedisQueryEngine(object):
         relatekeys = set()
 
         # iterate over each key from the prefixes
-        for key in itertools.chain(*[scan_iter(self.rconn, p) for p in pmap.keys()]):
+        keyiters = [self.rconn.scan_iter(p) for p in pmap.keys()]
+        all_keys = list(itertools.chain(*keyiters))
+        for key in all_keys:
             v = self.rconn.get(key)
             v = endecoder.loads(v)
 
@@ -1110,7 +1112,7 @@ def main():
                 Free('x'), 'remotelun_of', Free('y')
         )
 
-    rqe = RedisQueryEngine('localhost', 6379)
+    rqe = RedisQueryEngine('tools.svcs.aperobot.net', 6379)
     rqe.call_table['zpool_from_zvol_id'] = zpool_from_zvol_id
     rqe.call_table['strip_disk_slice'] = strip_disk_slice
     rqe.call_table['strip_zvol_parentdir'] =  strip_zvol_parentdir
