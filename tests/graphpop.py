@@ -59,29 +59,47 @@ c = redis.StrictRedis(host='tools.svcs.aperobot.net', port=6379)
 
 getter = functools.partial(get_docs, c)
 
-# for d in map(getter, chunks(itertools.chain(*map(c.scan_iter, map(lambda s: '%s\0*' % s, doc_prefixes))), 20)):
-#     def decode_and_mutate(j):
-#         j = json.loads(j)
-#         j['data'] = j['_']
-#         return j
-#     r = s.post('%s/_api/import?collection=purpledoc&type=array&details=true' % QUERY_PREFIX, data=json.dumps(list(map(decode_and_mutate, d))))
-#     print r
-#     print r.text
-#
+# create docs
+for d in map(getter, chunks(itertools.chain(*map(c.scan_iter, map(lambda s: '%s\0*' % s, doc_prefixes))), 20)):
+    def decode_and_mutate(j):
+        j = json.loads(j)
+        j['data'] = j['_']
+        return j
+    # r = s.post('%s/_api/import?collection=purpledoc&type=array&details=true' % QUERY_PREFIX, data=json.dumps(list(map(decode_and_mutate, d))))
+    r = s.post('%s/_api/import?collection=purpledoc&type=array' % QUERY_PREFIX, data=json.dumps(list(map(decode_and_mutate, d))))
+    print r, r.text
+
+
 # TODO use a cursor
-# build a map
+# build an ID map
 r = s.post('%s/_api/cursor' % QUERY_PREFIX, data=json.dumps(dict(query='FOR d IN purpledoc RETURN [ d.rkey, d._id ]')))
 j = r.json()
 keymap = dict(j['result'])
 
+# build a hash of existing relations
+r = s.post('%s/_api/cursor' % QUERY_PREFIX, data=json.dumps(dict(query='FOR e IN purpleedge RETURN [ e._from, e._to, e._label ]')))
+j = r.json()
+edgemap = { tuple(k): 1 for k in j }
+
+# create edges
 for d in map(getter, chunks(itertools.chain(*map(c.scan_iter, map(lambda s: '%s\0*' % s, rel_prefixes))), 20)):
     def decode_and_translate(j):
         j = json.loads(j)
+
         _from = j['_from']
         _to = j['_to']
         j['_from'] = keymap[_from]
         j['_to'] = keymap[_to]
-        return j
 
-    r = s.post('%s/_api/import?collection=purpleedge&type=array&details=true' % QUERY_PREFIX, data=json.dumps(list(map(decode_and_translate, d))))
-    print r.text
+        if (j['_from'], j['_to'], j['label'],) in edgemap:
+            return j
+        else:
+            return None
+
+    data = list(filter(None, map(decode_and_translate, d)))
+
+    if len(data) > 0:
+        print len(data), data
+        # r = s.post('%s/_api/import?collection=purpleedge&type=array&details=true' % QUERY_PREFIX, data=json.dumps(data))
+        r = s.post('%s/_api/import?collection=purpleedge&type=array' % QUERY_PREFIX, data=json.dumps(data))
+        print r, r.text
