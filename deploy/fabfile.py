@@ -10,17 +10,23 @@ REPO_URL="git@github.com:xandercrews/purpledrank.git"
 CODE_DIR = 'purpledrank/'
 VENV_DIR = 'venv/purpledrank/'
 # PID_FILE = "%s/conf/supervisord.pid" % CODE_DIR.rstrip('/')
-PID_FILE = '/tmp/supervisord.pid'
-SUPERVISOR_CONF = "%s/conf/supervisor.conf" % CODE_DIR.rstrip('/')
+MAGIC_PID_FILE = '/tmp/supervisord-magic.pid'
+CONFIG_PID_FILE = '/tmp/supervisord-config.pid'
+RELN_PID_FILE = '/tmp/supervisord-reln.pid'
+MAGIC_SUPERVISOR_CONF = "%s/conf/supervisor/magicservice.conf" % CODE_DIR.rstrip('/')
+CONFIG_SUPERVISOR_CONF = "%s/conf/supervisor/confighost.conf" % CODE_DIR.rstrip('/')
+RELN_SUPERVISOR_CONF = "%s/conf/supervisor/asttmp.conf" % CODE_DIR.rstrip('/')
 
 env.use_ssh_config = True
 env.forward_agent = True
+
 
 def get_config():
     with open(os.path.join(REPO_TOPDIR, 'conf/config.yaml')) as fh:
         return yaml.load(fh)
 
-def deploy(gittag=None, gitbranch='master', confighost='127.0.0.1', configport='9191', listenport='9292'):
+
+def _clone(gittag, gitbranch):
     new_git_dir = False
 
     # clone code
@@ -41,6 +47,8 @@ def deploy(gittag=None, gitbranch='master', confighost='127.0.0.1', configport='
             run('git checkout %s' % gitbranch)
         run('git pull')
 
+
+def _mkvirtualenv():
     # create virtualenv
     new_venv = False
     with settings(warn_only=True):
@@ -49,23 +57,28 @@ def deploy(gittag=None, gitbranch='master', confighost='127.0.0.1', configport='
     if new_venv:
         run('virtualenv %s -p `which python2.7`' % VENV_DIR)
 
+
+def deploymagic(gittag=None, gitbranch='master', confighost='127.0.0.1', configport='9191', listenport='9292'):
+    _clone(gittag, gitbranch)
+    _mkvirtualenv()
+
     supervisor_running = True
     with cd(CODE_DIR):
         with settings(warn_only=True):
-            if run('[ -f %s ]' % PID_FILE).failed:
+            if run('[ -f %s ]' % MAGIC_PID_FILE).failed:
                 supervisor_running = False
-            if run('read PID < %s; [ -d /proc/${PID} ]' % PID_FILE).failed:
+            if run('read PID < %s; [ -d /proc/${PID} ]' % MAGIC_PID_FILE).failed:
                 supervisor_running = False
 
     if not supervisor_running:
         # run supervisor
         with prefix('. %s/bin/activate' % VENV_DIR.strip('/')):
             with shell_env(PYTHONPATH=CODE_DIR, PURPLE_CONFIG_HOST=confighost, PURPLE_CONFIG_PORT=configport, PURPLE_LISTEN_PORT=listenport):
-                run('sudo -E supervisord -c %s' % SUPERVISOR_CONF)
+                run('sudo -E supervisord -c %s' % MAGIC_SUPERVISOR_CONF)
     else:
         with prefix('. %s/bin/activate' % VENV_DIR.strip('/')):
             with shell_env(PYTHONPATH=CODE_DIR):
-                run('sudo -E supervisorctl -c %s restart purple' % SUPERVISOR_CONF)
+                run('sudo -E supervisorctl -c %s restart purple' % MAGIC_SUPERVISOR_CONF)
 
     # config = get_config()
     # assert 'common' in config, 'config must have common section'
@@ -79,3 +92,48 @@ def deploy(gittag=None, gitbranch='master', confighost='127.0.0.1', configport='
     #         TODO install deps with setup.py
     #         run supervisor
     #         run('PYTHONPATH=%s zerorpc --bind tcp://0.0.0.0:%d purpledrank.services.magic.MagicService' % (magic_port))
+
+
+def deployconfigserver(gittag=None, gitbranch='master', confighost='127.0.0.1', configport='9191', listenport='9292'):
+    _clone(gittag, gitbranch)
+    _mkvirtualenv()
+
+    supervisor_running = True
+    with cd(CODE_DIR):
+        with settings(warn_only=True):
+            if run('[ -f %s ]' % CONFIG_PID_FILE).failed:
+                supervisor_running = False
+            if run('read PID < %s; [ -d /proc/${PID} ]' % CONFIG_PID_FILE).failed:
+                supervisor_running = False
+
+    if not supervisor_running:
+        # run supervisor
+        with prefix('. %s/bin/activate' % VENV_DIR.strip('/')):
+            with shell_env(PYTHONPATH=CODE_DIR, PURPLE_CONFIG_HOST=confighost, PURPLE_CONFIG_PORT=configport, PURPLE_LISTEN_PORT=listenport):
+                run('sudo -E supervisord -c %s' % CONFIG_SUPERVISOR_CONF)
+    else:
+        with prefix('. %s/bin/activate' % VENV_DIR.strip('/')):
+            with shell_env(PYTHONPATH=CODE_DIR):
+                run('sudo -E supervisorctl -c %s restart purpleconfig' % CONFIG_SUPERVISOR_CONF)
+
+def deployreltest(gittag=None, gitbranch='master', confighost='127.0.0.1', configport='9191', listenport='9292'):
+    _clone(gittag, gitbranch)
+    _mkvirtualenv()
+
+    supervisor_running = True
+    with cd(CODE_DIR):
+        with settings(warn_only=True):
+            if run('[ -f %s ]' % RELN_PID_FILE).failed:
+                supervisor_running = False
+            if run('read PID < %s; [ -d /proc/${PID} ]' % RELN_PID_FILE).failed:
+                supervisor_running = False
+
+    if not supervisor_running:
+        # run supervisor
+        with prefix('. %s/bin/activate' % VENV_DIR.strip('/')):
+            with shell_env(PYTHONPATH=CODE_DIR, PURPLE_CONFIG_HOST=confighost, PURPLE_CONFIG_PORT=configport, PURPLE_LISTEN_PORT=listenport):
+                run('sudo -E supervisord -c %s' % RELN_SUPERVISOR_CONF)
+    else:
+        with prefix('. %s/bin/activate' % VENV_DIR.strip('/')):
+            with shell_env(PYTHONPATH=CODE_DIR):
+                run('sudo -E supervisorctl -c %s restart purplerelationtmp' % RELN_SUPERVISOR_CONF)

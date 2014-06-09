@@ -14,6 +14,8 @@ def scan_iter(rconn, match=None, count=None):
         cursor, data = rconn.scan(cursor=cursor, match=match, count=count)
         for item in data:
             yield item
+        if len(data) == 0:
+            break
 
 def make_prefix(*components):
     '''
