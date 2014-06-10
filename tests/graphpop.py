@@ -54,6 +54,7 @@ def get_docs(rconn, keyiter):
         yield rconn.get(k)
 
 
+#
 s = requests.Session()
 c = redis.StrictRedis(host='tools.svcs.aperobot.net', port=6379)
 
@@ -77,9 +78,9 @@ j = r.json()
 keymap = dict(j['result'])
 
 # build a hash of existing relations
-r = s.post('%s/_api/cursor' % QUERY_PREFIX, data=json.dumps(dict(query='FOR e IN purpleedge RETURN [ e._from, e._to, e._label ]')))
+r = s.post('%s/_api/cursor' % QUERY_PREFIX, data=json.dumps(dict(query='FOR e IN purpleedge RETURN [ e._from, e._to, e.label ]')))
 j = r.json()
-edgemap = { tuple(k): 1 for k in j }
+edgemap = { tuple(k): 1 for k in j['result'] }
 
 # create edges
 for d in map(getter, chunks(itertools.chain(*map(c.scan_iter, map(lambda s: '%s\0*' % s, rel_prefixes))), 20)):
@@ -92,9 +93,9 @@ for d in map(getter, chunks(itertools.chain(*map(c.scan_iter, map(lambda s: '%s\
         j['_to'] = keymap[_to]
 
         if (j['_from'], j['_to'], j['label'],) in edgemap:
-            return j
-        else:
             return None
+        else:
+            return j
 
     data = list(filter(None, map(decode_and_translate, d)))
 

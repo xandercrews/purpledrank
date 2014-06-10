@@ -90,3 +90,16 @@ at the UI controller possible actions could be exposed as named procedures (how 
 * they could ask for their configuration when they start
 
 (Q) as the orchestration suite gets more complex and involves more services how you do keep the setup story simple?
+
+
+
+
+api + ui
+============
+use cases
+----
+* add new vm
+create and expose disks, create vm description, pick a network
+
+* remote console
+display connection strings
