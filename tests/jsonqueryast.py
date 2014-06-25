@@ -70,7 +70,7 @@ import operator
 import re
 
 from purpledrank.purpleutil import dictequal
-from purpledrank.redisutil import add_prefix
+from purpledrank.redisutil import scan_iter, add_prefix
 
 # import msgpack as endecoder
 import json as endecoder
@@ -552,7 +552,7 @@ class RedisQueryEngine(object):
 
     def _markLinkKeys(self, keyprefix):
         # find link keys
-        linkkeys = {k: 1 for k in self.rconn.scan_iter(keyprefix)}
+        linkkeys = {k: 1 for k in scan_iter(self.rconn, keyprefix)}
 
         # find subkeys
         for key in linkkeys:
@@ -597,9 +597,8 @@ class RedisQueryEngine(object):
         relatekeys = set()
 
         # iterate over each key from the prefixes
-        keyiters = [self.rconn.scan_iter(p) for p in pmap.keys()]
-        all_keys = list(itertools.chain(*keyiters))
-        for key in all_keys:
+        keyiters = [scan_iter(self.rconn, p) for p in pmap.keys()]
+        for key in itertools.chain(*keyiters):
             v = self.rconn.get(key)
             v = endecoder.loads(v)
 
