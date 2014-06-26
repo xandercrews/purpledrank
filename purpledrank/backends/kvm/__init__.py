@@ -210,7 +210,11 @@ class KVMCommandInterface(object):
         # TODO prevent race where a vm could be started in between checks-
         # qemu provides a pidfile option but does not check it and start
         # the VM atomically
-        assert isinstance(migrateport, int), 'migration port should be a number'
+        try:
+            migrateport = int(migrateport)
+        except ValueError:
+            raise Exception('migrate port must be a number')
+
         assert 1024 < migrateport < 65536, 'migration port should be a non-privileged port num'
 
         if self._vm_is_running(vmname):
