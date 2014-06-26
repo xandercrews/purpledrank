@@ -6,8 +6,6 @@ from ...timeutil import utctimestamp
 from ...envelopeutil import make_envelope
 
 import functools
-import uuid
-import base64
 
 import gevent.pool
 
@@ -64,11 +62,17 @@ class KVMService(BaseService):
         self.kc.start(vmname)
         return True
 
-    def start_migrate_target(self, vmname):
+    def start_migrate_target(self, vmname, migrateport):
         """
         starts a vm in incoming/migrate mode
         """
-        return self.kc.start_migrate_target(vmname)
+        return self.kc.start_migrate_target(vmname, migrateport)
+
+    def migrate(self, vmname, targethost, targetport, speedinkb=None, downtimeinseconds=None, spicehost=None, spiceticket=None):
+        """
+        starts a vm migration to a remote target
+        """
+        return self.kc.migrate(vmname, targethost, targetport, speedinkb, downtimeinseconds, spicehost, spiceticket)
 
     def shutdown_vm(self, vmname):
         """
@@ -88,7 +92,7 @@ class KVMService(BaseService):
         """
         assigns and returns a temporary spice access ticket at random
         """
-        ticket = base64.urlsafe_b64encode(uuid.uuid4().bytes)
+        ticket = self.kc._generate_spice_ticket()
         self.kc.set_spice_ticket(vmname, ticket, expiry)
         return ticket
 
