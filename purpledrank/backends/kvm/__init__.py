@@ -23,6 +23,8 @@ import tempfile
 import uuid
 import base64
 
+import netifaces
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,26 @@ logger = logging.getLogger(__name__)
 #
 
 # can update inventory state on events with inotify (but it doesn't work on NFS)
+
+
+class KVMHypervisorInterface(object):
+    def get_info(self):
+        return {
+            'nics': self._get_nics(),
+        }
+
+    def _get_nics(self):
+        def add_key(accum, t):
+            iface, afam, alist = t
+            if iface not in accum:
+                accum[iface] = {}
+            accum[iface][afam] = alist
+            return accum
+
+        ifs = netifaces.interfaces()
+        addrs = [(i,netifaces.address_families[k],v) for i in ifs for k,v in netifaces.ifaddresses(i).items()]
+        addrs = reduce(add_key, addrs, {})
+        return addrs
 
 
 class KVMInventoryInterface(object):

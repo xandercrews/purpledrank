@@ -14,6 +14,7 @@ class KVMService(BaseService):
         BaseService.__init__(self)
         self.ki = kvm.KVMInventoryInterface()
         self.kc = kvm.KVMCommandInterface(self.ki)
+        self.hv = kvm.KVMHypervisorInterface()
         self.sourceid = self.config['sourceid']
 
     def get_vm(self, vmname):
@@ -101,6 +102,9 @@ class KVMService(BaseService):
         issues an arbitrary monitor command to vm
         """
         return self.kc.mon_command(vmname, command, *args)
+
+    def hv_info(self):
+        return [ make_envelope(self.hv.get_info(), self.sourceid, 'kvm_hv', self.sourceid, utctimestamp()) ]
 
     def _get_vm(self, timestamp, vmname):
         # fetch vm information from backend services and combine results

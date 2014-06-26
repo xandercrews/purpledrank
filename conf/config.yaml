@@ -80,6 +80,11 @@ collector-service: &collector
       method   : get_all_vms
       interval : 30
       args     : []
+    - <<       : *beastmode1
+      name     : kvm_hvs
+      method   : hv_info
+      interval : 30
+      args     : []
   service: purpledrank.services.rediscollector.RedisCollectorService
   redis:
     << : *redis-config

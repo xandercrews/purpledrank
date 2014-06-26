@@ -15,8 +15,6 @@ logger.setLevel(logging.DEBUG)
 
 
 app = flask.Flask('purpledrank-api')
-ARANGO_SERVER = app.config['ARANGO_SERVER']
-ARANGO_DB = app.config['ARANGO_DB']
 
 
 @app.errorhandler(404)
@@ -26,7 +24,7 @@ def page_not_found(e):
 
 @app.before_first_request
 def initialize():
-    app.arango = arango.create(db=ARANGO_DB, host=ARANGO_SERVER)
+    app.arango = arango.create(db=app.config.get('ARANGO_DB'), host=app.config.get('ARANGO_SERVER'))
 
 
 @app.route('/api/vm', methods=['GET'])
@@ -35,11 +33,11 @@ def list_vms():
 
     q = q.iter('u')
     q = q.filter('u.type == "kvm_vm"')
-    q = q.result(fields={'_id': 'u._id', 'id': 'u.id'})
+    q = q.result(fields={'_id': 'u._id', 'id': 'u.id', 'sourceid': 'u.sourceid'})
 
     c = q.execute()
 
-    d = sorted(map(lambda o: o.body['id'], c))
+    d = sorted(map(lambda o: "%s:%s" % (o.body['sourceid'], o.body['id']), c))
 
     if len(d) == 0:
         abort(404)

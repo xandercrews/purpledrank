@@ -8,7 +8,7 @@ REPO_TOPDIR = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__fi
 
 def init_logger():
     logfile_path = os.path.join(REPO_TOPDIR, 'conf', 'logging.yaml')
-    print "looking for log file as %s" % logfile_path
+    print "looking for log config file at %s" % logfile_path
     with open(logfile_path, 'r') as fh:
         d = yaml.load(fh)
 
