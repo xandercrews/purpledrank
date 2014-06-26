@@ -337,6 +337,11 @@ class KVMCommandInterface(object):
         kwargs =dict(map(lambda a: a.split('=', 1), args))
 
         with self._get_mon(vm) as mon:
+            if len(kwargs) > 0:
+                logger.debug('monitor command\n%s' % json.dumps(execute=command, arguments=kwargs))
+            else:
+                logger.debug('monitor command\n%s' % json.dumps(execute=command))
+
             resp = mon.command(command, **kwargs)
             logger.debug('monitor response: %s' % resp)
 
