@@ -174,7 +174,7 @@ class KVMCommandInterface(object):
         self.inventory = inventory
         self.piddir = piddir
 
-    # start or shutdown a kvm virtual machine by name
+    # start a vm by name
     def start(self, vmname):
         # TODO prevent race where a vm could be started in between checks-
         # qemu provides a pidfile option but does not check it and start
@@ -205,11 +205,14 @@ class KVMCommandInterface(object):
             resp = mon.command('query-status')
             logger.debug('monitor response: %s' % resp)
 
-    # start or shutdown a kvm virtual machine by name
-    def start_migrate_target(self, vmname):
+    # start a vm in incoming mode
+    def start_migrate_target(self, vmname, migrateport):
         # TODO prevent race where a vm could be started in between checks-
         # qemu provides a pidfile option but does not check it and start
         # the VM atomically
+        assert isinstance(migrateport, int), 'migration port should be a number'
+        assert 1024 < migrateport < 65536, 'migration port should be a non-privileged port num'
+
         if self._vm_is_running(vmname):
             raise Exception('vm is running')
 
@@ -221,7 +224,7 @@ class KVMCommandInterface(object):
         cmdline = self._vm_to_cmdline(vm)
 
         # TODO make
-        cmdline = [self.KVM_COMMAND_LINE] + cmdline + ['-incoming', 'tcp:0.0.0.0:11111']
+        cmdline = [self.KVM_COMMAND_LINE] + cmdline + ['-incoming', 'tcp:0.0.0.0:%d' % migrateport]
 
         logger.debug('executing kvm command: %s' % ' '.join(cmdline))
         print ' '.join(cmdline)
@@ -237,7 +240,40 @@ class KVMCommandInterface(object):
             resp = mon.command('query-status')
             logger.debug('monitor response: %s' % resp)
 
-        return 11111
+        return migrateport
+
+    # begin migration to a remote target in incoming mode
+    def migrate(self, vmname, target, speedinkb=None, downtimeinseconds=None):
+        vm = self.inventory.get_vm(vmname)
+
+        if vm is None:
+            raise Exception('vm \'%s\' does not exist')
+
+        if not self._vm_is_running(vmname):
+            raise Exception('vm is not running')
+
+        args = {'uri': 'tcp:%s' % target}
+
+        if speedinkb is not None:
+            assert isinstance(speedinkb, (int, long)), 'migration speed must be specified numerically in kb'
+        else:
+            speedinkb = 1600 * 1024    # theoretical DDR IB limit
+
+        if downtimeinseconds is not None:
+            assert isinstance(downtimeinseconds, (int, float, long)), 'downtime must be specified numerically in seconds'
+
+        with self._get_mon(vm) as mon:
+            resp = mon.command('migrate_set_speed', value=speedinkb)
+            logger.debug('migrate set speed (%d) response: %s' % (speedinkb, resp))
+
+            if downtimeinseconds is not None:
+                resp = mon.command('migrate_set_downtime', value=float(downtimeinseconds))
+                logger.debug('migrate set downtime (%f) response: %s' % (downtimeinseconds, resp))
+
+            resp = mon.command('migrate', **args)
+            logger.debug('migrate response: %s' % resp)
+
+        return resp
 
     def shutdown(self, vmname):
         vm = self.inventory.get_vm(vmname)

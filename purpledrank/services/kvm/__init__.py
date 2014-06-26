@@ -64,11 +64,17 @@ class KVMService(BaseService):
         self.kc.start(vmname)
         return True
 
-    def start_migrate_target(self, vmname):
+    def start_migrate_target(self, vmname, migrateport):
         """
         starts a vm in incoming/migrate mode
         """
-        return self.kc.start_migrate_target(vmname)
+        return self.kc.start_migrate_target(vmname, migrateport)
+
+    def migrate(self, vmname, target, speedinkb=None, downtimeinseconds=None):
+        """
+        starts a vm migration to a remote target
+        """
+        return self.kc.migrate(vmname, target, speedinkb, downtimeinseconds)
 
     def shutdown_vm(self, vmname):
         """
