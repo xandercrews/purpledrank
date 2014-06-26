@@ -263,7 +263,7 @@ class KVMCommandInterface(object):
         return ticket
 
     # begin migration to a remote target in incoming mode
-    def migrate(self, vmname, targethost, targetport, speedinkb=None, downtimeinseconds=None, spicehost=None):
+    def migrate(self, vmname, targethost, targetport, speedinkb=None, downtimeinseconds=None, spicehost=None, spiceticket=None):
         vm = self.inventory.get_vm(vmname)
 
         if vm is None:
@@ -288,6 +288,10 @@ class KVMCommandInterface(object):
 
         if spicehost is not None:
             assert isinstance(spicehost, (basestring, unicode)), 'spice host must be a string'
+            assert spicehost is not None, 'spice ticket must be specified'
+            assert isinstance(spiceticket, (basestring, unicode)), 'spice ticket must be a string'
+
+        if spiceticket is not None:
 
         if targetport is not None:
             try:
@@ -309,6 +313,7 @@ class KVMCommandInterface(object):
             try:
                 if spiceinfo['enabled']:
                     # TODO tighter expiry time
+                    self._mon_command_mon(mon, 'set_password', protocol='spice', password=spiceticket)
                     self._mon_command_mon(mon, 'expire_password', protocol='spice', time='+3600')
 
                     spicehost = spicehost if spicehost is not None else targethost
