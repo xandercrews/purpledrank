@@ -273,7 +273,7 @@ class KVMCommandInterface(object):
                 raise Exception('downtime must be specified numerically in seconds')
 
         with self._get_mon(vm) as mon:
-            resp = mon.command('migrate_set_speed', value=speedinkb)
+            resp = mon.command('migrate_set_speed', value=(speedinkb*1024))
             logger.debug('migrate set speed (%d) response: %s' % (speedinkb, resp))
 
             if downtimeinseconds is not None:
