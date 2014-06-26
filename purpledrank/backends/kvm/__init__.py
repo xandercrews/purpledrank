@@ -291,8 +291,6 @@ class KVMCommandInterface(object):
             assert spicehost is not None, 'spice ticket must be specified'
             assert isinstance(spiceticket, (basestring, unicode)), 'spice ticket must be a string'
 
-        if spiceticket is not None:
-
         if targetport is not None:
             try:
                 targetport = int(targetport)
