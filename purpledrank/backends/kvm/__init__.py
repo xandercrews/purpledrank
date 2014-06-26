@@ -247,7 +247,7 @@ class KVMCommandInterface(object):
         return migrateport
 
     # begin migration to a remote target in incoming mode
-    def migrate(self, vmname, target, speedinkb=None, downtimeinseconds=None):
+    def migrate(self, vmname, targethost, targetport, speedinkb=None, downtimeinseconds=None, spicehost=None):
         vm = self.inventory.get_vm(vmname)
 
         if vm is None:
@@ -255,8 +255,6 @@ class KVMCommandInterface(object):
 
         if not self._vm_is_running(vmname):
             raise Exception('vm is not running')
-
-        args = {'uri': 'tcp:%s' % target}
 
         if speedinkb is not None:
             try:
@@ -272,7 +270,31 @@ class KVMCommandInterface(object):
             except ValueError:
                 raise Exception('downtime must be specified numerically in seconds')
 
+        if spicehost is not None:
+            assert isinstance(spicehost, (basestring, unicode)), 'spice host must be a string'
+
+        if targetport is not None:
+            try:
+                targetport = int(targetport)
+                assert 1024 < targetport < 65536, 'migration target port should be a non-privileged port num'
+            except ValueError:
+                raise Exception('target port must be an integer')
+
+        args = {'uri': 'tcp:%s:%d' % (targethost,targetport)}
+
         with self._get_mon(vm) as mon:
+            spiceinfo = mon.command('query-spice')
+            logger.debug('spice query: %s' % spiceinfo)
+
+            try:
+                if spiceinfo['enabled']:
+                    spicehost = spicehost if spicehost is not None else targethost
+                    spiceport = spiceinfo['port']
+                    resp = mon.command('client_migrate_info', protocol='spice', hostname=spicehost, port=spiceport)
+                    logger.debug('migrate info response: %s' % resp)
+            except:
+                logger.exception('could not set spice migration info')
+
             resp = mon.command('migrate_set_speed', value=(speedinkb*1024))
             logger.debug('migrate set speed (%d) response: %s' % (speedinkb, resp))
 

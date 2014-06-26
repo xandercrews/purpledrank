@@ -70,11 +70,11 @@ class KVMService(BaseService):
         """
         return self.kc.start_migrate_target(vmname, migrateport)
 
-    def migrate(self, vmname, target, speedinkb=None, downtimeinseconds=None):
+    def migrate(self, vmname, targethost, targetport, speedinkb=None, downtimeinseconds=None, spicehost=None):
         """
         starts a vm migration to a remote target
         """
-        return self.kc.migrate(vmname, target, speedinkb, downtimeinseconds)
+        return self.kc.migrate(vmname, targethost, targetport, speedinkb, downtimeinseconds, spicehost)
 
     def shutdown_vm(self, vmname):
         """
