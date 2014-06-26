@@ -26,13 +26,13 @@ twaughthammer-sq46yxz: &twaughthammer
   sourceid: twaughthammer
   << : *zfs
 
-beastmode1-rsaj8th:
+beastmode1-rsaj8th: &beastmode1
   host: beastmode1.mgmt.aperobot.net
   port: 9292
   sourceid: beastmode1
   << : *kvm
 
-beastmode2-wfuf2w:
+beastmode2-wfuf2w: &beastmode2
   host: beastmode2.mgmt.aperobot.net
   port: 9292
   sourceid: beastmode2
@@ -71,6 +71,11 @@ collector-service: &collector
       interval : 30
       args     : []
     - <<       : *beastmode1
+      name     : kvm_vms
+      method   : get_all_vms
+      interval : 30
+      args     : []
+    - <<       : *beastmode2
       name     : kvm_vms
       method   : get_all_vms
       interval : 30
