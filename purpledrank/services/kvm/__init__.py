@@ -64,6 +64,12 @@ class KVMService(BaseService):
         self.kc.start(vmname)
         return True
 
+    def start_migrate_target(self, vmname):
+        """
+        starts a vm in incoming/migrate mode
+        """
+        return self.kc.start_migrate_target(vmname)
+
     def shutdown_vm(self, vmname):
         """
         sends the vm a signal to shut down (may or may not work)

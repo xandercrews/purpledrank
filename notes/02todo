@@ -1,7 +1,5 @@
-* kvm data collection
-* kvm inventory scheme, process monitoring
-    **json vm descriptions?
-* solve tgt -> hg problem when hg is all
+* graph populator
+* solve tgt -> hg problem when hg is 'all'
     **conditional logic in queries?
     **multiple queries that have the same relational label
 * openvswitch data collection
@@ -15,3 +13,12 @@
 * allow multiple inheritance in the magicservice
     **can yaml merge lists?
 * work out streaming service details
+* figure out how to deploy it permanently
+* api server
+* service catalog
+
+COMPLETED
+=========
+* kvm data collection
+* kvm inventory scheme, process monitoring
+    **json vm descriptions?

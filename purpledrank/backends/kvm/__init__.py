@@ -205,6 +205,40 @@ class KVMCommandInterface(object):
             resp = mon.command('query-status')
             logger.debug('monitor response: %s' % resp)
 
+    # start or shutdown a kvm virtual machine by name
+    def start_migrate_target(self, vmname):
+        # TODO prevent race where a vm could be started in between checks-
+        # qemu provides a pidfile option but does not check it and start
+        # the VM atomically
+        if self._vm_is_running(vmname):
+            raise Exception('vm is running')
+
+        vm = self.inventory.get_vm(vmname)
+
+        if vm is None:
+            raise Exception('vm \'%s\' does not exist' % vmname)
+
+        cmdline = self._vm_to_cmdline(vm)
+
+        # TODO make
+        cmdline = [self.KVM_COMMAND_LINE] + cmdline + ['-incoming', 'tcp:0.0.0.0:11111']
+
+        logger.debug('executing kvm command: %s' % ' '.join(cmdline))
+        print ' '.join(cmdline)
+
+        p = subprocess.Popen(cmdline, stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+
+        if p.returncode != 0:
+            raise Exception('could not start vm: %s' % err)
+
+        # verify vm is running via qmp interface
+        with self._get_mon(vm) as mon:
+            resp = mon.command('query-status')
+            logger.debug('monitor response: %s' % resp)
+
+        return 11111
+
     def shutdown(self, vmname):
         vm = self.inventory.get_vm(vmname)
 
