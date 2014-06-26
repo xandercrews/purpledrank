@@ -357,7 +357,7 @@ class KVMCommandInterface(object):
                 blockstats = self._mon_command_mon(mon, 'query-blockstats')
                 status = self._mon_command_mon(mon, 'query-status')
                 vnc = self._mon_command_mon(mon, 'query-vnc')
-                spice = self._mon_command_mon('query-spice')
+                spice = self._mon_command_mon(mon,'query-spice')
         else:
             blockdev = None
             blockstats = None
