@@ -20,6 +20,9 @@ from contextlib import contextmanager
 
 import tempfile
 
+import uuid
+import base64
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -246,11 +249,18 @@ class KVMCommandInterface(object):
         if p.returncode != 0:
             raise Exception('could not start vm: %s' % err)
 
-        # verify vm is running via qmp interface
         with self._get_mon(vm) as mon:
+            # verify vm is running via qmp interface
             self._mon_command_mon(mon, 'query-status')
 
-        return migrateport
+            if 'spice' in vm['display']:
+                # assign some ticket or other
+                ticket = self._generate_spice_ticket()
+                self._mon_command_mon(mon, 'set_password', protocol='spice', password=ticket)
+            else:
+                ticket = None
+
+        return ticket
 
     # begin migration to a remote target in incoming mode
     def migrate(self, vmname, targethost, targetport, speedinkb=None, downtimeinseconds=None, spicehost=None):
@@ -526,3 +536,6 @@ sleep 5
         fh = os.fdopen(fd, 'w')
         os.chmod(filename, stat.S_IXUSR | os.stat(filename).st_mode)
         return (fh, filename)
+
+    def _generate_spice_ticket(self):
+        return base64.urlsafe_b64encode(uuid.uuid4().bytes)

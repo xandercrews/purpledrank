@@ -6,8 +6,6 @@ from ...timeutil import utctimestamp
 from ...envelopeutil import make_envelope
 
 import functools
-import uuid
-import base64
 
 import gevent.pool
 
@@ -94,7 +92,7 @@ class KVMService(BaseService):
         """
         assigns and returns a temporary spice access ticket at random
         """
-        ticket = base64.urlsafe_b64encode(uuid.uuid4().bytes)
+        ticket = self.kc._generate_spice_ticket()
         self.kc.set_spice_ticket(vmname, ticket, expiry)
         return ticket
 
