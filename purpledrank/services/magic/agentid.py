@@ -8,6 +8,8 @@ import string
 REPO_TOPDIR = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', '..'))
 AGENT_ID_PATH = '%s/agentid' % REPO_TOPDIR
 
+print "attempting to get agent id at %s" % AGENT_ID_PATH
+
 import logging
 logger = logging.getLogger(__name__)
 

@@ -66,8 +66,8 @@ sync-service: &sync
   redis:
     << : *redis-config
 
-xander-xerbuyi:
-  host: xander.esc.aperobot.net
+tools-HQ0c2rv:
+  host: tools.svcs.aperobot.net
   << : *collector
 
 beastmode1-rsaj8th:
