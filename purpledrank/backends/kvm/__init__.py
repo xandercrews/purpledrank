@@ -192,7 +192,11 @@ class KVMCommandInterface(object):
         cmdline = [self.KVM_COMMAND_LINE] + cmdline
 
         logger.debug('executing kvm command: %s' % ' '.join(cmdline))
-        print ' '.join(cmdline)
+
+        try:
+            os.unlink(self._vm_pidfile(vmname))
+        except IOError:
+            pass
 
         p = subprocess.Popen(cmdline, stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
@@ -230,7 +234,11 @@ class KVMCommandInterface(object):
         cmdline = [self.KVM_COMMAND_LINE] + cmdline + ['-incoming', 'tcp:0.0.0.0:%d' % migrateport]
 
         logger.debug('executing kvm command: %s' % ' '.join(cmdline))
-        print ' '.join(cmdline)
+
+        try:
+            os.unlink(self._vm_pidfile(vmname))
+        except IOError:
+            pass
 
         p = subprocess.Popen(cmdline, stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
@@ -281,25 +289,25 @@ class KVMCommandInterface(object):
         args = {'uri': 'tcp:%s:%d' % (targethost,targetport)}
 
         with self._get_mon(vm) as mon:
+            self._mon_command_mon(mon, 'migrate_set_speed', value=(speedinkb*1024))
+
+            if downtimeinseconds is not None:
+                self._mon_command_mon(mon, 'migrate_set_downtime', value=float(downtimeinseconds))
+
             spiceinfo = self._mon_command_mon(mon, 'query-spice')
 
             try:
                 if spiceinfo['enabled']:
+                    # TODO tighter expiry time
+                    self._mon_command_mon(mon, 'expire_password', protocol='spice', time='+3600')
+
                     spicehost = spicehost if spicehost is not None else targethost
                     spiceport = spiceinfo['port']
                     self._mon_command_mon(mon, 'client_migrate_info', protocol='spice', hostname=spicehost, port=spiceport)
-
-                    # TODO tighter expiry time
-                    self._mon_command_mon(mon, 'expire_password', protocol='spice', time='+3600')
             except:
                 logger.exception('could not set spice migration info')
 
-            self._mon_command_mon(mon, 'migrate_set_speed', value=(speedinkb*1024))
-
-            if downtimeinseconds is not None:
-                resp = self._mon_command_mon(mon, 'migrate_set_downtime', value=float(downtimeinseconds))
-
-            resp = self._mon_command_mon(mon, 'migrate', **args)
+            self._mon_command_mon(mon, 'migrate', **args)
 
     def shutdown(self, vmname):
         vm = self.inventory.get_vm(vmname)
