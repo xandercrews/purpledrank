@@ -202,8 +202,7 @@ class KVMCommandInterface(object):
 
         # verify vm is running via qmp interface
         with self._get_mon(vm) as mon:
-            resp = mon.command('query-status')
-            logger.debug('monitor response: %s' % resp)
+            self._mon_command_mon(mon, 'query-status')
 
     # start a vm in incoming mode
     def start_migrate_target(self, vmname, migrateport):
@@ -241,8 +240,7 @@ class KVMCommandInterface(object):
 
         # verify vm is running via qmp interface
         with self._get_mon(vm) as mon:
-            resp = mon.command('query-status')
-            logger.debug('monitor response: %s' % resp)
+            self._mon_command_mon(mon, 'query-status')
 
         return migrateport
 
@@ -283,47 +281,37 @@ class KVMCommandInterface(object):
         args = {'uri': 'tcp:%s:%d' % (targethost,targetport)}
 
         with self._get_mon(vm) as mon:
-            spiceinfo = mon.command('query-spice')
-            logger.debug('spice query: %s' % spiceinfo)
+            spiceinfo = self._mon_command_mon(mon, 'query-spice')
 
             try:
                 if spiceinfo['enabled']:
                     spicehost = spicehost if spicehost is not None else targethost
                     spiceport = spiceinfo['port']
-                    resp = mon.command('client_migrate_info', protocol='spice', hostname=spicehost, port=spiceport)
-                    logger.debug('migrate info response: %s' % resp)
+                    self._mon_command_mon(mon, 'client_migrate_info', protocol='spice', hostname=spicehost, port=spiceport)
 
                     # TODO tighter expiry time
-                    resp = mon.command('expire_password', protocol='spice', time='+3600')
-                    logger.debug('refresh ticket response: %s' % resp)
+                    self._mon_command_mon(mon, 'expire_password', protocol='spice', time='+3600')
             except:
                 logger.exception('could not set spice migration info')
 
-            resp = mon.command('migrate_set_speed', value=(speedinkb*1024))
-            logger.debug('migrate set speed (%d) response: %s' % (speedinkb, resp))
+            self._mon_command_mon(mon, 'migrate_set_speed', value=(speedinkb*1024))
 
             if downtimeinseconds is not None:
-                resp = mon.command('migrate_set_downtime', value=float(downtimeinseconds))
-                logger.debug('migrate set downtime (%f) response: %s' % (downtimeinseconds, resp))
+                resp = self._mon_command_mon(mon, 'migrate_set_downtime', value=float(downtimeinseconds))
 
-            resp = mon.command('migrate', **args)
-            logger.debug('migrate response: %s' % resp)
-
-        return resp
+            resp = self._mon_command_mon(mon, 'migrate', **args)
 
     def shutdown(self, vmname):
         vm = self.inventory.get_vm(vmname)
 
         with self._get_mon(vm) as mon:
-            resp = mon.command('system_powerdown')
-            logger.debug('monitor response: %s' % resp)
+            self._mon_command_mon(mon, 'system_powerdown')
 
     def kill(self, vmname):
         vm = self.inventory.get_vm(vmname)
 
         with self._get_mon(vm) as mon:
-            resp = mon.command('quit')
-            logger.debug('monitor response: %s' % resp)
+            resp = self._mon_command_mon(mon, 'quit')
 
     def zap(self, vmname):
         try:
@@ -347,6 +335,17 @@ class KVMCommandInterface(object):
 
         return resp
 
+    def _mon_command_mon(self, mon, command, **kwargs):
+        if len(kwargs) > 0:
+            logger.debug('monitor command\n%s' % json.dumps(execute=command, arguments=kwargs))
+        else:
+            logger.debug('monitor command\n%s' % json.dumps(execute=command))
+
+        resp = mon.command(command, **kwargs)
+        logger.debug('monitor response: %s' % resp)
+        return resp
+
+
     def vm_info(self, vmname):
         vm = self.inventory.get_vm(vmname)
 
@@ -354,11 +353,11 @@ class KVMCommandInterface(object):
 
         if running:
             with self._get_mon(vm) as mon:
-                blockdev = mon.command('query-block')
-                blockstats = mon.command('query-blockstats')
-                status = mon.command('query-status')
-                vnc = mon.command('query-vnc')
-                spice = mon.command('query-spice')
+                blockdev = self._mon_command_mon(mon, 'query-block')
+                blockstats = self._mon_command_mon(mon, 'query-blockstats')
+                status = self._mon_command_mon(mon, 'query-status')
+                vnc = self._mon_command_mon(mon, 'query-vnc')
+                spice = self._mon_command_mon('query-spice')
         else:
             blockdev = None
             blockstats = None
@@ -372,8 +371,8 @@ class KVMCommandInterface(object):
         vm = self.inventory.get_vm(vmname)
 
         with self._get_mon(vm) as mon:
-            mon.command('set_password', protocol='spice', password=ticket)
-            mon.command('expire_password', protocol='spice', time=expiry)
+            self._mon_command_mon(mon, 'set_password', protocol='spice', password=ticket)
+            self._mon_command_mon(mon, 'expire_password', protocol='spice', time=expiry)
 
     @contextmanager
     def _get_mon(self, vm):
