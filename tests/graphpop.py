@@ -6,6 +6,7 @@ import redis
 import itertools
 import functools
 import json
+import time
 
 
 doc_prefixes = [
@@ -29,7 +30,6 @@ rel_prefixes = [
 ]
 
 QUERY_PREFIX = "http://tools.svcs.aperobot.net:8529/_db/purpledrank"
-
 
 def chunks(l, n):
     """ Yield successive n-sized chunks from l.
@@ -104,3 +104,5 @@ for d in map(getter, chunks(itertools.chain(*map(c.scan_iter, map(lambda s: '%s\
         # r = s.post('%s/_api/import?collection=purpleedge&type=array&details=true' % QUERY_PREFIX, data=json.dumps(data))
         r = s.post('%s/_api/import?collection=purpleedge&type=array' % QUERY_PREFIX, data=json.dumps(data))
         print r, r.text
+
+time.sleep(1)

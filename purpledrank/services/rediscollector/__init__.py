@@ -56,116 +56,119 @@ class RedisCollectionThread(threading.Thread):
         self.stopevent = threading.Event()
 
         def periodic_cb():
-            logger.debug('worker %s waking' % self.sourcename)
+            try:
+                logger.debug('worker %s waking' % self.sourcename)
 
-            logger.debug('worker %s scanning previous keys' % self.sourcename)
-            previous_keys = set(scan_iter(self.rconn, '%s\0*' % self.redis_key_prefix))
+                logger.debug('worker %s scanning previous keys' % self.sourcename)
+                previous_keys = set(scan_iter(self.rconn, '%s\0*' % self.redis_key_prefix))
 
-            logger.debug('worker %s collecting data' % self.sourcename)
-            data = self.collection_method()
+                logger.debug('worker %s collecting data' % self.sourcename)
+                data = self.collection_method()
 
-            logger.debug('collected %d objects from agent %s method %s' % (len(data), self.agentid, self.method))
+                logger.debug('collected %d objects from agent %s method %s' % (len(data), self.agentid, self.method))
 
-            process_keys = []
+                process_keys = []
 
-            for d in data:
-                if not isinstance(d, collections.Mapping):
-                    logger.error('object is not a mapping: %s' % str(d))
-                    continue
+                for d in data:
+                    if not isinstance(d, collections.Mapping):
+                        logger.error('object is not a mapping: %s' % str(d))
+                        continue
 
-                if 'id' not in d:
-                    logger.error('id field not set in object: %s' % str(d))
-                    continue
+                    if 'id' not in d:
+                        logger.error('id field not set in object: %s' % str(d))
+                        continue
 
-                if 'type' not in d:
-                    logger.error('type field not set in object: %s' % str(d))
-                    continue
+                    if 'type' not in d:
+                        logger.error('type field not set in object: %s' % str(d))
+                        continue
 
-                if 'sourceid' not in d:
-                    logger.error('sourceid field not set in object: %s' % str(d))
-                    continue
+                    if 'sourceid' not in d:
+                        logger.error('sourceid field not set in object: %s' % str(d))
+                        continue
 
-                if '_' not in d:
-                    logger.error('data (_) field not set in object: %s' % str(d))
-                    continue
+                    if '_' not in d:
+                        logger.error('data (_) field not set in object: %s' % str(d))
+                        continue
 
-                _id = d['id']
-                _type = d['type']
-                _sourceid = d['sourceid']
+                    _id = d['id']
+                    _type = d['type']
+                    _sourceid = d['sourceid']
 
-                logger.debug('processing object: %s' % str(d))
+                    logger.debug('processing object: %s' % str(d))
 
-                redis_key = add_prefix(self.redis_key_prefix, _sourceid, _type, _id)
-                redis_pub_key = add_prefix(self.redis_pub_key_prefix, _type)
+                    redis_key = add_prefix(self.redis_key_prefix, _sourceid, _type, _id)
+                    redis_pub_key = add_prefix(self.redis_pub_key_prefix, _type)
 
-                d['rkey'] = redis_key
+                    d['rkey'] = redis_key
 
-                old_data = self.rconn.get(redis_key)
+                    old_data = self.rconn.get(redis_key)
 
-                update_record = False
+                    update_record = False
 
-                if old_data is None:
-                    update_record = True
-                    logger.info('creating and publishing record %s' % redis_key)
-                else:
-                    try:
-                        old_data = endecoder.loads(old_data)
-
-                        if not isinstance(old_data, collections.Mapping):
-                            update_record = True
-                            logger.error('previous data was not a mapping, overwriting')
-                            logger.info('updating and publishing record %s' % redis_key)
-                        elif '_' not in old_data:
-                            update_record = True
-                            logger.error('previous data did not include data (_) field, overwriting')
-                            logger.info('updating and publishing record %s' % redis_key)
-                        elif not dictequal(d['_'], old_data['_']):
-                            update_record = True
-                            logger.info('updating and publishing record %s' % redis_key)
-                    except Exception, e:
-                        logger.error('could not decode previous record, overwriting')
+                    if old_data is None:
                         update_record = True
+                        logger.info('creating and publishing record %s' % redis_key)
+                    else:
+                        try:
+                            old_data = endecoder.loads(old_data)
 
-                if update_record:
-                    r = endecoder.dumps(d)
-                    self.rconn.set(redis_key, r)
-                    self.rconn.publish(redis_pub_key, r)
+                            if not isinstance(old_data, collections.Mapping):
+                                update_record = True
+                                logger.error('previous data was not a mapping, overwriting')
+                                logger.info('updating and publishing record %s' % redis_key)
+                            elif '_' not in old_data:
+                                update_record = True
+                                logger.error('previous data did not include data (_) field, overwriting')
+                                logger.info('updating and publishing record %s' % redis_key)
+                            elif not dictequal(d['_'], old_data['_']):
+                                update_record = True
+                                logger.info('updating and publishing record %s' % redis_key)
+                        except Exception, e:
+                            logger.error('could not decode previous record, overwriting')
+                            update_record = True
 
-                process_keys.append(redis_key)
+                    if update_record:
+                        r = endecoder.dumps(d)
+                        self.rconn.set(redis_key, r)
+                        self.rconn.publish(redis_pub_key, r)
 
-            stale_keys = previous_keys - set(process_keys)
-            logger.info('found %d stale keys, removing' % len(stale_keys))
-            logger.debug('stale keys: [%s]' % ', '.join(stale_keys))
+                    process_keys.append(redis_key)
 
-            for dkey in stale_keys:
-                while True:
-                    try:
-                        with self.rconn.pipeline() as p:
-                            p.watch(dkey)
-                            v = p.get(dkey)
-                            logger.debug(v)
-                            if v is None:
-                                break
-                            v = endecoder.loads(v)
+                stale_keys = previous_keys - set(process_keys)
+                logger.info('found %d stale keys, removing' % len(stale_keys))
+                logger.debug('stale keys: [%s]' % ', '.join(stale_keys))
 
-                            _id = v['id']
-                            _type = v['type']
-                            _sourceid = v['sourceid']
+                for dkey in stale_keys:
+                    while True:
+                        try:
+                            with self.rconn.pipeline() as p:
+                                p.watch(dkey)
+                                v = p.get(dkey)
+                                logger.debug(v)
+                                if v is None:
+                                    break
+                                v = endecoder.loads(v)
 
-                            redis_key = add_prefix(self.redis_key_prefix, _sourceid, _type, _id)
-                            redis_pub_key = add_prefix(self.redis_pub_key_prefix, _type)
+                                _id = v['id']
+                                _type = v['type']
+                                _sourceid = v['sourceid']
 
-                            p.multi()
-                            v['rkey'] = redis_key
-                            v['_'] = None
-                            p.delete(dkey)
-                            p.execute()
+                                redis_key = add_prefix(self.redis_key_prefix, _sourceid, _type, _id)
+                                redis_pub_key = add_prefix(self.redis_pub_key_prefix, _type)
 
-                        v = endecoder.dumps(v)
-                        self.rconn.publish(redis_pub_key, v)
-                        break
-                    except redis.WatchError, e:
-                        pass
+                                p.multi()
+                                v['rkey'] = redis_key
+                                v['_'] = None
+                                p.delete(dkey)
+                                p.execute()
+
+                            v = endecoder.dumps(v)
+                            self.rconn.publish(redis_pub_key, v)
+                            break
+                        except redis.WatchError, e:
+                            pass
+            except Exception, e:
+                logger.exception('poll failed')
 
         def streaming_cb():
             raise NotYetImplementedException()
