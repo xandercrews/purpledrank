@@ -292,6 +292,10 @@ class KVMCommandInterface(object):
                     spiceport = spiceinfo['port']
                     resp = mon.command('client_migrate_info', protocol='spice', hostname=spicehost, port=spiceport)
                     logger.debug('migrate info response: %s' % resp)
+
+                    # TODO tighter expiry time
+                    resp = mon.command('expire_password', protocol='spice', time='+3600')
+                    logger.debug('refresh ticket response: %s' % resp)
             except:
                 logger.exception('could not set spice migration info')
 
