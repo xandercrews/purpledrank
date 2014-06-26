@@ -259,12 +259,18 @@ class KVMCommandInterface(object):
         args = {'uri': 'tcp:%s' % target}
 
         if speedinkb is not None:
-            assert isinstance(speedinkb, (int, long)), 'migration speed must be specified numerically in kb'
+            try:
+                speedinkb = int(speedinkb)
+            except ValueError:
+                raise Exception('migration speed must be specified numerically in kb')
         else:
             speedinkb = 1600 * 1024    # theoretical DDR IB limit
 
         if downtimeinseconds is not None:
-            assert isinstance(downtimeinseconds, (int, float, long)), 'downtime must be specified numerically in seconds'
+            try:
+                downtimeinseconds = float(downtimeinseconds)
+            except ValueError:
+                raise Exception('downtime must be specified numerically in seconds')
 
         with self._get_mon(vm) as mon:
             resp = mon.command('migrate_set_speed', value=speedinkb)
