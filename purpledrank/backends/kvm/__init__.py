@@ -220,7 +220,7 @@ class KVMCommandInterface(object):
 
         try:
             os.unlink(self._vm_pidfile(vmname))
-        except IOError:
+        except OSError:
             pass
 
         p = subprocess.Popen(cmdline, stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
