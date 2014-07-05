@@ -534,6 +534,7 @@ sleep 5
         # cdrom stuff
         if 'cdrom' in vm:
             cmdline += [ '-cdrom', vm['cdrom'] ]
+            cmdline += [ '-boot', 'order=dc' ]
 
         # spice display
         if 'spice' in vm['display']:
