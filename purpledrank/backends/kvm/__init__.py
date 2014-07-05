@@ -522,7 +522,7 @@ sleep 5
                 if nic['type'] == 'vhost':
                     nicdevname = '%s.%d' % (vm['name'], nicdev)
                     cmdline += [ '-net', 'nic,macaddr=%s,model=%s,model=%s,netdev=%s' % (nic['macaddr'], nic['model'], nic['model'], nicdevname) ]
-                    cmdline += [ '-netdev', 'tap,ifname=%s,id=%s,vhost=on,script=%s,downscript=%s,' % (nicdevname, nicdevname, upscript[1], downscript[1])]
+                    cmdline += [ '-netdev', 'tap,ifname=%s,id=%s,vhost=on,script=%s,downscript=%s' % (nicdevname, nicdevname, upscript[1], downscript[1])]
 
                 else:
                     assert nic['type'] == 'tap'
