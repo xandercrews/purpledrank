@@ -6,6 +6,7 @@ import redis
 import itertools
 import functools
 import json
+import time
 
 
 doc_prefixes = [
@@ -16,6 +17,7 @@ doc_prefixes = [
     "zpool_props",
     "zpool_status",
     "itadm_properties",
+    "kvm_hvs",
 ]
 
 rel_prefixes = [
@@ -26,10 +28,10 @@ rel_prefixes = [
     "lun_of",
     "remotelun_of",
     "zpool_properties_of",
+    "hv_of",
 ]
 
 QUERY_PREFIX = "http://tools.svcs.aperobot.net:8529/_db/purpledrank"
-
 
 def chunks(l, n):
     """ Yield successive n-sized chunks from l.
@@ -70,6 +72,11 @@ for d in map(getter, chunks(itertools.chain(*map(c.scan_iter, map(lambda s: '%s\
     r = s.post('%s/_api/import?collection=purpledoc&type=array' % QUERY_PREFIX, data=json.dumps(list(map(decode_and_mutate, d))))
     print r, r.text
 
+    try:
+        print 'posted %d new docs' % r.json()['created']
+    except:
+        print 'problem with request'
+
 
 # TODO use a cursor
 # build an ID map
@@ -104,3 +111,7 @@ for d in map(getter, chunks(itertools.chain(*map(c.scan_iter, map(lambda s: '%s\
         # r = s.post('%s/_api/import?collection=purpleedge&type=array&details=true' % QUERY_PREFIX, data=json.dumps(data))
         r = s.post('%s/_api/import?collection=purpleedge&type=array' % QUERY_PREFIX, data=json.dumps(data))
         print r, r.text
+
+    print 'posted %d new edges' % len(data)
+
+time.sleep(1)

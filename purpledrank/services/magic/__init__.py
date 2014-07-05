@@ -4,6 +4,8 @@ import gevent
 import gevent.monkey
 gevent.monkey.patch_time()
 
+import json
+
 import os
 import sys
 
@@ -41,6 +43,8 @@ class RemoteServiceConfigMetaclass(type):
         '''
         RemoteServiceConfigMetaclass.updateLoggingConfig()
 
+        logger.info('logging from metaclass')
+
         # get the remote config
         ID = agentid.get_agent_id()
         try:
@@ -65,7 +69,7 @@ class RemoteServiceConfigMetaclass(type):
         except zerorpc.exceptions.RemoteError, e:
             if e.name == 'ConfigNotFoundException':
                 bases = [ DiscoveryService ] + list(bases)
-                logger.info('could not determine remote class, built with discovery class')
+                logger.warn('could not determine remote class, built with discovery class')
             else:
                 raise
 
@@ -83,6 +87,7 @@ class RemoteServiceConfigMetaclass(type):
             l = c.get_logging_config()
             # reset_logging()    # unnecessary
             logging.config.dictConfig(l)
+            print 'got logging config\n%s' % json.dumps(l, indent=2)
             logger.info('logger configured from remote')
         except Exception, e:
             error = 'couldn\'t load log config- %s' % str(e)

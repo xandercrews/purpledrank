@@ -17,7 +17,7 @@ test-service: &test-service
   service: purpledrank.services.test.TestService
 
 redis-config: &redis-config
-  host: 127.0.0.1
+  host: tools.svcs.aperobot.net
   port: 6379
 
 twaughthammer-sq46yxz: &twaughthammer
@@ -25,6 +25,18 @@ twaughthammer-sq46yxz: &twaughthammer
   port: 9292
   sourceid: twaughthammer
   << : *zfs
+
+beastmode1-rsaj8th: &beastmode1
+  host: beastmode1.mgmt.aperobot.net
+  port: 9292
+  sourceid: beastmode1
+  << : *kvm
+
+beastmode2-wfuf2w: &beastmode2
+  host: beastmode2.mgmt.aperobot.net
+  port: 9292
+  sourceid: beastmode2
+  << : *kvm
 
 collector-service: &collector
   sources:
@@ -58,6 +70,21 @@ collector-service: &collector
       method   : get_cfgadm_disks
       interval : 30
       args     : []
+    - <<       : *beastmode1
+      name     : kvm_vms
+      method   : get_all_vms
+      interval : 30
+      args     : []
+    - <<       : *beastmode2
+      name     : kvm_vms
+      method   : get_all_vms
+      interval : 30
+      args     : []
+    - <<       : *beastmode1
+      name     : kvm_hvs
+      method   : hv_info
+      interval : 30
+      args     : []
   service: purpledrank.services.rediscollector.RedisCollectorService
   redis:
     << : *redis-config
@@ -66,18 +93,6 @@ sync-service: &sync
   redis:
     << : *redis-config
 
-xander-xerbuyi:
-  host: xander.esc.aperobot.net
+tools-HQ0c2rv:
+  host: tools.svcs.aperobot.net
   << : *collector
-
-beastmode1-rsaj8th:
-  host: beastmode1.mgmt.aperobot.net
-  port: 9292
-  sourceid: beastmode1
-  << : *kvm
-
-beastmode2-wfuf2w:
-  host: beastmode2.mgmt.aperobot.net
-  port: 9292
-  sourceid: beastmode2
-  << : *kvm

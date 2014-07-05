@@ -6,8 +6,6 @@ from ...timeutil import utctimestamp
 from ...envelopeutil import make_envelope
 
 import functools
-import uuid
-import base64
 
 import gevent.pool
 
@@ -16,6 +14,7 @@ class KVMService(BaseService):
         BaseService.__init__(self)
         self.ki = kvm.KVMInventoryInterface()
         self.kc = kvm.KVMCommandInterface(self.ki)
+        self.hv = kvm.KVMHypervisorInterface()
         self.sourceid = self.config['sourceid']
 
     def get_vm(self, vmname):
@@ -64,11 +63,17 @@ class KVMService(BaseService):
         self.kc.start(vmname)
         return True
 
-    def start_migrate_target(self, vmname):
+    def start_migrate_target(self, vmname, migrateport):
         """
         starts a vm in incoming/migrate mode
         """
-        return self.kc.start_migrate_target(vmname)
+        return self.kc.start_migrate_target(vmname, migrateport)
+
+    def migrate(self, vmname, targethost, targetport, speedinkb=None, downtimeinseconds=None, spicehost=None, spiceticket=None):
+        """
+        starts a vm migration to a remote target
+        """
+        return self.kc.migrate(vmname, targethost, targetport, speedinkb, downtimeinseconds, spicehost, spiceticket)
 
     def shutdown_vm(self, vmname):
         """
@@ -88,7 +93,7 @@ class KVMService(BaseService):
         """
         assigns and returns a temporary spice access ticket at random
         """
-        ticket = base64.urlsafe_b64encode(uuid.uuid4().bytes)
+        ticket = self.kc._generate_spice_ticket()
         self.kc.set_spice_ticket(vmname, ticket, expiry)
         return ticket
 
@@ -97,6 +102,9 @@ class KVMService(BaseService):
         issues an arbitrary monitor command to vm
         """
         return self.kc.mon_command(vmname, command, *args)
+
+    def hv_info(self):
+        return [ make_envelope(self.hv.get_info(), self.sourceid, 'kvm_hv', self.sourceid, utctimestamp()) ]
 
     def _get_vm(self, timestamp, vmname):
         # fetch vm information from backend services and combine results
