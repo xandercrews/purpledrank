@@ -412,6 +412,10 @@ sleep 5
 
                 nicdev += 1
 
+        # cdrom stuff
+        if 'cdrom' in vm:
+            cmdline += [ '-cdrom', vm['cdrom'] ]
+
         # spice display
         if 'spice' in vm['display']:
             spice = vm['display']['spice']
